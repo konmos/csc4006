@@ -10,3 +10,8 @@ A (non-exhaustive) list of resources which may be useful for referencing:
 * computationaltales.blogspot.com/p/book.html
 * Knuth: Computer Programming As An Art - http://www.paulgraham.com/knuth.html
 * Code is Not Literature - https://gigamonkeys.com/code-reading/
+* Metaphorical Representation in SE [PDF]
+* Metaphors & Analogies for Teaching ALgorithms [PDF]
+* Stories and Narratives in Safety Engineering (Catherine Menon, Austin Rainer)
+* https://www.joelonsoftware.com/2002/11/11/the-law-of-leaky-abstractions/
+* https://en.wikipedia.org/wiki/Leaky_abstraction
