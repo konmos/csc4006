@@ -15,3 +15,8 @@ A (non-exhaustive) list of resources which may be useful for referencing:
 * Stories and Narratives in Safety Engineering (Catherine Menon, Austin Rainer)
 * https://www.joelonsoftware.com/2002/11/11/the-law-of-leaky-abstractions/
 * https://en.wikipedia.org/wiki/Leaky_abstraction
+* https://lamport.azurewebsites.net/
+* [An interview with Edsger W. Dijkstra](https://dl.acm.org/doi/fullHtml/10.1145/1787234.1787249?casa_token=gAm_oFxgDOgAAAAA:uV69yiK-NxN1Vwl0XrFFKK78P9ASPFX4tUImA2mrfTCwjFUBZdSn0O7lr1RFTryTCbW3zoQxfnlTNQ)
+* Dining Philosophers
+  * [A](https://www.cs.utexas.edu/users/EWD/ewd10xx/EWD1000.PDF)
+  * [B](https://citemaster.net/get/c4d7f9e2-f7a0-11e2-9bc5-00163e009cc7/EWD310.PDF)
