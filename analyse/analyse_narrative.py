@@ -1,6 +1,11 @@
 from collections import defaultdict
 
-import click, spacy
+import click
+import spacy
+import numpy as np
+import networkx as nx
+import matplotlib.pyplot as plt
+
 from narcy import document_factory
 from narcy import doc_to_relations_df, doc_to_svos_df, doc_to_tokens_df
 
@@ -64,46 +69,61 @@ def simple_relationships(text, nouns):
 @click.option('-d', 'dump_data', default=False, help='dump data to csv', is_flag=True)
 @click.option('-n', 'get_nouns', default=False, help='extract nouns', is_flag=True)
 @click.option('-sr', 's_rel', default=False, help='extract simple relationships', is_flag=True)
+@click.option('-g', 'graph', default=False, help='draw a node graph', is_flag=True)
 @click.argument('fname')
-def main(dump_data, fname, get_nouns, s_rel):
+def main(dump_data, fname, get_nouns, s_rel, graph):
     with open(fname, 'r') as fd:
         text = fd.read()
 
-    analysis = {}
+    analysis = perform_analysis(
+        text,
+        tokens=any([dump_data, graph, get_nouns, s_rel]),
+        relations=dump_data,
+        svos=dump_data,
+        relations_r=dump_data
+    )
 
     if dump_data:
-        analysis = perform_analysis(
-            text,
-            tokens=True,
-            relations=True,
-            svos=True,
-            relations_r=True
-        )
-
         for x in analysis:
             analysis[x].to_csv(f'{x}.csv')
 
-
-    if get_nouns:
-        if analysis.get('tokens') is None:
-            analysis = perform_analysis(
-                text,
-                tokens=True
-            )
-
-        nouns = extract_nouns(analysis)
-        click.echo(nouns)
-
-    if s_rel:
-        if analysis.get('tokens') is None:
-            analysis = perform_analysis(
-                text,
-                tokens=True
-            )
-
+    if any([graph, get_nouns, s_rel]):
         nouns = extract_nouns(analysis)
         rel = simple_relationships(text, nouns)
-        click.echo(rel)
+
+        if graph:
+            G = nx.Graph()
+            G.add_nodes_from({x['lemma'].replace(' ', '\n') for x in nouns})
+            G.add_edges_from([(x.replace(' ', '\n'), y.replace(' ', '\n')) for x in rel for y in rel[x]])
+
+            cmap = plt.get_cmap('Set3')
+            colors = cmap(np.linspace(0, 1, len(rel)))
+
+            nx.draw(
+                G,
+                with_labels=True,
+                font_size=8,
+                node_size=2000,
+                font_weight="bold",
+                width=0.75,
+                edgecolors='gray',
+                node_color=colors
+            )
+
+            # Scale axis to prevent nodes getting cut off
+            axis = plt.gca()
+            axis.set_xlim([1.1*x for x in axis.get_xlim()])
+            axis.set_ylim([1.1*y for y in axis.get_ylim()])
+            plt.savefig(f'{fname}.graph.png', format='PNG')
+
+        if get_nouns:
+            nouns = extract_nouns(analysis)
+            click.echo(nouns)
+
+        if s_rel:
+            nouns = extract_nouns(analysis)
+            rel = simple_relationships(text, nouns)
+            click.echo(rel)
 
 
 if __name__ == '__main__':

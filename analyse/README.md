@@ -26,6 +26,7 @@ Options:
   -d      dump data to csv
   -n      extract nouns
   -sr     extract simple relationships
+  -g      draw a node graph
   --help  Show this message and exit.
 ```
 
@@ -71,8 +72,13 @@ defaultdict(
 )
 ```
 
+```
+$ python analyse_narrative -g byzantine.txt
+```
+
+![graph](byzantine.txt.graph.png)
+
 ### TODO
 
 * Extract better relationships
 * Extract verbs for each noun
-* Represent the data as a diagram
