@@ -117,12 +117,9 @@ def main(dump_data, fname, get_nouns, s_rel, graph):
             plt.savefig(f'{fname}.graph.png', format='PNG')
 
         if get_nouns:
-            nouns = extract_nouns(analysis)
             click.echo(nouns)
 
         if s_rel:
-            nouns = extract_nouns(analysis)
-            rel = simple_relationships(text, nouns)
             click.echo(rel)
 
 
