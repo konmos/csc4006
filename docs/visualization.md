@@ -5,7 +5,7 @@ As part of the research for this project, an attempt has been made to visualize 
 The BGP posed some problems when it came to visualization as it was unclear what to *actually* visualize. The original idea was to draw a node graph representing the communications that take place between the generals, however, this quickly got messy, even with a small number of generals. This would be even more true for the recursive implementation of the communication algorithm. Thus, in the end, what was settled for is a simple bar graph which records the observations that each general receives from the other generals and the observations that he himself reports to the others.
 
 ![BGP 3m](img/generals_3m.png)
-![BGP 3m+1](img/generals_3m.png)
+![BGP 3m+1](img/generals_3m1.png)
 
 
 ## Dining Philosophers
