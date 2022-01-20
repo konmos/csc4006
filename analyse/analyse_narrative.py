@@ -29,7 +29,7 @@ def perform_analysis(text: str, **kwargs) -> dict:
     }
 
 
-def extract_nouns(analysis: dict) -> list:
+def extract_nouns(analysis: dict, nsubj=False) -> list:
     nouns = []
     num_items = analysis['tokens'].shape[0]
 
@@ -37,12 +37,13 @@ def extract_nouns(analysis: dict) -> list:
         token = analysis['tokens'].iloc[i]
 
         if token['pos'] in ('NOUN', 'PROPN'):  # Noun or proper noun
-            nouns.append({
-                'token': token['token'],
-                'lead': token['lead'],
-                'lemma': token['lemma'],
-                'tense': token['tense']
-            })
+            if not nsubj or nsubj and token['dep'] in ('nsubj', 'nsubjpass'):
+                nouns.append({
+                    'token': token['token'],
+                    'lead': token['lead'],
+                    'lemma': token['lemma'],
+                    'tense': token['tense']
+                })
 
     return nouns
 
@@ -81,17 +82,21 @@ def cli(ctx, fname):
 
 
 @cli.command()
+@click.argument('etype',
+                type=click.Choice(['nouns', 'nsubj', 'keyword']))
 @click.pass_context
-def draw_graph(ctx):
+def draw_graph(ctx, etype):
+    '''
+    Draw a graph by extracting entities from a piece of text
+    '''
     analysis = perform_analysis(
         ctx.obj['text'],
-        tokens=True,
-        relations=True,
-        svos=True,
-        relations_r=True
+        tokens=True
     )
 
-    nouns = extract_nouns(analysis)
+    if etype in ('nouns', 'nsubj'):
+        nouns = extract_nouns(analysis, nsubj=(etype=='nsubj'))
+
     _nouns = {x['lemma'].replace(' ', '\n') for x in nouns}
     rel = simple_relationships(ctx.obj['text'], nouns, analysis['sentences'])
 
