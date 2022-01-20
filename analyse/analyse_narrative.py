@@ -104,8 +104,11 @@ def main(dump_data, fname, get_nouns, s_rel, graph):
             cmap = plt.get_cmap('Set3')
             colors = cmap(np.linspace(0, 1, len(_nouns)))
 
+            pos = nx.nx_pydot.graphviz_layout(G)
+
             nx.draw(
                 G,
+                pos,
                 with_labels=True,
                 font_size=8,
                 node_size=2000,
