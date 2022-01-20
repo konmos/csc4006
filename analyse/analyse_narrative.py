@@ -95,12 +95,14 @@ def main(dump_data, fname, get_nouns, s_rel, graph):
         rel = simple_relationships(text, nouns, analysis['sentences'])
 
         if graph:
+            _nouns = {x['lemma'].replace(' ', '\n') for x in nouns}
+
             G = nx.Graph()
-            G.add_nodes_from({x['lemma'].replace(' ', '\n') for x in nouns})
+            G.add_nodes_from(_nouns)
             G.add_edges_from([(x.replace(' ', '\n'), y.replace(' ', '\n')) for x in rel for y in rel[x]])
 
             cmap = plt.get_cmap('Set3')
-            colors = cmap(np.linspace(0, 1, len(rel)))
+            colors = cmap(np.linspace(0, 1, len(_nouns)))
 
             nx.draw(
                 G,
