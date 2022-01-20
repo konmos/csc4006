@@ -86,8 +86,10 @@ def cli(ctx, fname):
 @click.option('-nsubj', default=False, help='filter nouns to contain only nominal subjects', is_flag=True)
 @click.option('-kw', default=-1, help='filter nouns to only the X most common keywords')
 @click.option('-avg', default=False, help='filter nouns to only those with an above average occurrence', is_flag=True)
+@click.option('-layout', help='node positioning algorithm',
+              type=click.Choice(['circular', 'kawai','random', 'shell', 'spring', 'spectral', 'spiral', 'graphviz']))
 @click.pass_context
-def draw_graph(ctx, nsubj, kw, avg):
+def draw_graph(ctx, nsubj, kw, avg, layout=None):
     '''
     Draw a graph by extracting entities from a piece of text
     '''
@@ -122,7 +124,17 @@ def draw_graph(ctx, nsubj, kw, avg):
     cmap = plt.get_cmap('Set3')
     colors = cmap(np.linspace(0, 1, len(_nouns)))
 
-    pos = nx.nx_pydot.graphviz_layout(G)
+    graph_layout = {
+        'circular': nx.circular_layout,
+        'kawai': nx.kamada_kawai_layout,
+        'random': nx.random_layout,
+        'shell': nx.shell_layout,
+        'spring': nx.spring_layout,
+        'spectral': nx.spectral_layout,
+        'spiral': nx.spiral_layout
+    }
+
+    pos = graph_layout.get(layout, nx.nx_pydot.graphviz_layout)(G)
 
     nx.draw(
         G,
