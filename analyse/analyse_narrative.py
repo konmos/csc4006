@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import yake
 import click
 import spacy
 import numpy as np
@@ -82,10 +83,11 @@ def cli(ctx, fname):
 
 
 @cli.command()
-@click.argument('etype',
-                type=click.Choice(['nouns', 'nsubj', 'keyword']))
+@click.option('-nsubj', default=False, help='filter nouns to contain only nominal subjects', is_flag=True)
+@click.option('-kw', default=-1, help='filter nouns to only the X most common keywords')
+@click.option('-avg', default=False, help='filter nouns to only those with an above average occurrence', is_flag=True)
 @click.pass_context
-def draw_graph(ctx, etype):
+def draw_graph(ctx, nsubj, kw, avg):
     '''
     Draw a graph by extracting entities from a piece of text
     '''
@@ -94,8 +96,21 @@ def draw_graph(ctx, etype):
         tokens=True
     )
 
-    if etype in ('nouns', 'nsubj'):
-        nouns = extract_nouns(analysis, nsubj=(etype=='nsubj'))
+    nouns = extract_nouns(analysis, nsubj=nsubj)
+
+    if avg:
+        noun_counts = defaultdict(int)
+
+        for n in nouns:
+            noun_counts[n['lemma']] += 1
+
+        average_occurrence = len(nouns) / len(noun_counts)
+        nouns = [n for n in nouns if noun_counts[n['lemma']] >= average_occurrence]
+
+    if kw != -1:
+        kw_extractor = yake.KeywordExtractor(lan='en', n=3, dedupLim=0.9, top=kw, features=None)
+        kw = {k[0].lower() for k in kw_extractor.extract_keywords(ctx.obj['text'])}
+        nouns = [n for n in nouns if n['token'] in kw or n['lemma'] in kw]
 
     _nouns = {x['lemma'].replace(' ', '\n') for x in nouns}
     rel = simple_relationships(ctx.obj['text'], nouns, analysis['sentences'])
