@@ -21,6 +21,7 @@ def perform_analysis(text: str, **kwargs) -> dict:
     doc = make_doc(text)
 
     return {
+        'sentences': [str(s).lower() for s in doc.sents],
         'relations': None if 'relations' not in kwargs else doc_to_relations_df(doc),
         'relations_r': None if 'relations_r' not in kwargs else doc_to_relations_df(doc, reduced=True),
         'svos': None if 'svos' not in kwargs else doc_to_svos_df(doc),
@@ -46,12 +47,14 @@ def extract_nouns(analysis: dict) -> list:
     return nouns
 
 
-def simple_relationships(text, nouns):
+def simple_relationships(text, nouns, sentences=None):
     # A very naive and inaccurate method of establishing the relationships
     # between a collection of nouns in a piece of text. It works by simply
     # identifying which nouns appear together in a sentence.
     relationships = defaultdict(set)
-    sentences = [x.strip() for x in text.split('.')]
+
+    if sentences is None:
+        sentences = [x.strip() for x in text.split('.')]
 
     for n1 in nouns:
         for n2 in nouns:
@@ -89,7 +92,7 @@ def main(dump_data, fname, get_nouns, s_rel, graph):
 
     if any([graph, get_nouns, s_rel]):
         nouns = extract_nouns(analysis)
-        rel = simple_relationships(text, nouns)
+        rel = simple_relationships(text, nouns, analysis['sentences'])
 
         if graph:
             G = nx.Graph()
