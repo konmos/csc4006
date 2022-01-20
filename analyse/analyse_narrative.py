@@ -68,68 +68,75 @@ def simple_relationships(text, nouns, sentences=None):
     return relationships
 
 
-@click.command()
-@click.option('-d', 'dump_data', default=False, help='dump data to csv', is_flag=True)
-@click.option('-n', 'get_nouns', default=False, help='extract nouns', is_flag=True)
-@click.option('-sr', 's_rel', default=False, help='extract simple relationships', is_flag=True)
-@click.option('-g', 'graph', default=False, help='draw a node graph', is_flag=True)
+@click.group(invoke_without_command=True)
 @click.argument('fname')
-def main(dump_data, fname, get_nouns, s_rel, graph):
+@click.pass_context
+def cli(ctx, fname):
     with open(fname, 'r') as fd:
         text = fd.read()
 
+    ctx.ensure_object(dict)
+    ctx.obj['fname'] = fname
+    ctx.obj['text'] = text
+
+
+@cli.command()
+@click.pass_context
+def draw_graph(ctx):
     analysis = perform_analysis(
-        text,
-        tokens=any([dump_data, graph, get_nouns, s_rel]),
-        relations=dump_data,
-        svos=dump_data,
-        relations_r=dump_data
+        ctx.obj['text'],
+        tokens=True,
+        relations=True,
+        svos=True,
+        relations_r=True
     )
 
-    if dump_data:
-        for x in analysis:
-            analysis[x].to_csv(f'{x}.csv')
+    nouns = extract_nouns(analysis)
+    _nouns = {x['lemma'].replace(' ', '\n') for x in nouns}
+    rel = simple_relationships(ctx.obj['text'], nouns, analysis['sentences'])
 
-    if any([graph, get_nouns, s_rel]):
-        nouns = extract_nouns(analysis)
-        rel = simple_relationships(text, nouns, analysis['sentences'])
+    G = nx.Graph()
+    G.add_nodes_from(_nouns)
+    G.add_edges_from([(x.replace(' ', '\n'), y.replace(' ', '\n')) for x in rel for y in rel[x]])
 
-        if graph:
-            _nouns = {x['lemma'].replace(' ', '\n') for x in nouns}
+    cmap = plt.get_cmap('Set3')
+    colors = cmap(np.linspace(0, 1, len(_nouns)))
 
-            G = nx.Graph()
-            G.add_nodes_from(_nouns)
-            G.add_edges_from([(x.replace(' ', '\n'), y.replace(' ', '\n')) for x in rel for y in rel[x]])
+    pos = nx.nx_pydot.graphviz_layout(G)
 
-            cmap = plt.get_cmap('Set3')
-            colors = cmap(np.linspace(0, 1, len(_nouns)))
+    nx.draw(
+        G,
+        pos,
+        with_labels=True,
+        font_size=8,
+        node_size=2000,
+        font_weight="bold",
+        width=0.75,
+        edgecolors='gray',
+        node_color=colors
+    )
 
-            pos = nx.nx_pydot.graphviz_layout(G)
+    # Scale axis to prevent nodes getting cut off
+    axis = plt.gca()
+    axis.set_xlim([1.1*x for x in axis.get_xlim()])
+    axis.set_ylim([1.1*y for y in axis.get_ylim()])
+    plt.savefig(f'{ctx.obj["fname"]}.graph.png', format='PNG')
 
-            nx.draw(
-                G,
-                pos,
-                with_labels=True,
-                font_size=8,
-                node_size=2000,
-                font_weight="bold",
-                width=0.75,
-                edgecolors='gray',
-                node_color=colors
-            )
 
-            # Scale axis to prevent nodes getting cut off
-            axis = plt.gca()
-            axis.set_xlim([1.1*x for x in axis.get_xlim()])
-            axis.set_ylim([1.1*y for y in axis.get_ylim()])
-            plt.savefig(f'{fname}.graph.png', format='PNG')
+@cli.command()
+@click.pass_context
+def dump_data(ctx):
+    analysis = perform_analysis(
+        ctx.obj['text'],
+        tokens=True,
+        relations=True,
+        svos=True,
+        relations_r=True
+    )
 
-        if get_nouns:
-            click.echo(nouns)
-
-        if s_rel:
-            click.echo(rel)
+    for x in analysis:
+        analysis[x].to_csv(f'{x}.csv')
 
 
 if __name__ == '__main__':
-    main()
+    cli(obj={})
