@@ -88,10 +88,11 @@ def cli(ctx, fname):
 @click.option('-avg', default=False, help='filter nouns to only those with an above average occurrence', is_flag=True)
 @click.option('-layout', help='node positioning algorithm',
               type=click.Choice(['circular', 'kawai','random', 'shell', 'spring', 'spectral', 'spiral', 'graphviz']))
+@click.option('-scale', default=1.1, help='axis scaling factor to prevent nodes being cut off')
 @click.pass_context
-def draw_graph(ctx, nsubj, kw, avg, layout=None):
+def draw_graph(ctx, nsubj, kw, avg, layout=None, scale=1.1):
     '''
-    Draw a graph by extracting entities from a piece of text
+    Draw a graph by extracting entities from a piece of text.
     '''
     analysis = perform_analysis(
         ctx.obj['text'],
@@ -150,14 +151,17 @@ def draw_graph(ctx, nsubj, kw, avg, layout=None):
 
     # Scale axis to prevent nodes getting cut off
     axis = plt.gca()
-    axis.set_xlim([1.1*x for x in axis.get_xlim()])
-    axis.set_ylim([1.1*y for y in axis.get_ylim()])
+    axis.set_xlim([scale*x for x in axis.get_xlim()])
+    axis.set_ylim([scale*y for y in axis.get_ylim()])
     plt.savefig(f'{ctx.obj["fname"]}.graph.png', format='PNG')
 
 
 @cli.command()
 @click.pass_context
 def dump_data(ctx):
+    '''
+    Dump analysis data to CSV files.
+    '''
     analysis = perform_analysis(
         ctx.obj['text'],
         tokens=True,

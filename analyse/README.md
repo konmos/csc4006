@@ -15,70 +15,51 @@ where, instead, an empty set gets returned. It's possible that the code is inade
 
 Following from the above, a more comprehensive approach was employed where, instead of simply relying on NER, narrative analysis was employed with the help of [Narcy](https://github.com/sztal/narcy#readme). The results of this are far more promising.
 
+
 ### Script Usage
 
 ```
 $ python analyse_narrative --help
 
-Usage: analyse_narrative.py [OPTIONS] FNAME
+Usage: analyse_narrative.py [OPTIONS] FNAME COMMAND [ARGS]...
 
 Options:
-  -d      dump data to csv
-  -n      extract nouns
-  -sr     extract simple relationships
-  -g      draw a node graph
   --help  Show this message and exit.
+
+Commands:
+  draw-graph  Draw a graph by extracting entities from a piece of text
+  dump-data   Dump analysis data to CSV files.
 ```
 
 ### Example Results
 
 ```
-$ python analyse_narrative -n -sr byzantine.txt
-
-[{'lead': 'divisions', 'lemma': 'division', 'tense': 'PAST', 'token': 'divisions'},
- {'lead': 'army', 'lemma': 'army', 'tense': 'PAST', 'token': 'army'},
- {'lead': 'enemy city', 'lemma': 'enemy city', 'tense': 'PAST', 'token': 'enemy city'},
- {'lead': 'division', 'lemma': 'division', 'tense': 'PAST', 'token': 'division'},
- {'lead': 'general', 'lemma': 'general', 'tense': 'PAST', 'token': 'general'},
- {'lead': 'generals', 'lemma': 'general', 'tense': 'PRESENT', 'token': 'generals'},
- {'lead': 'messenger', 'lemma': 'messenger', 'tense': 'PRESENT', 'token': 'messenger'},
- {'lead': 'enemy', 'lemma': 'enemy', 'tense': 'PRESENT', 'token': 'enemy'},
- {'lead': 'plan', 'lemma': 'plan', 'tense': 'PRESENT', 'token': 'plan'},
- {'lead': 'action', 'lemma': 'action', 'tense': 'PRESENT', 'token': 'action'},
- {'lead': 'generals', 'lemma': 'general', 'tense': 'PRESENT', 'token': 'generals'},
- {'lead': 'traitors', 'lemma': 'traitor', 'tense': 'PRESENT', 'token': 'traitors'},
- {'lead': 'generals', 'lemma': 'general', 'tense': 'FUTURE', 'token': 'generals'},
- {'lead': 'agreement', 'lemma': 'agreement', 'tense': 'PRESENT', 'token': 'agreement'},
- {'lead': 'generals', 'lemma': 'general', 'tense': 'PRESENT', 'token': 'generals'},
- {'lead': 'plan', 'lemma': 'plan', 'tense': 'PRESENT', 'token': 'plan'},
- {'lead': 'action', 'lemma': 'action', 'tense': 'PRESENT', 'token': 'action'},
- {'lead': 'traitors', 'lemma': 'traitor', 'tense': 'PRESENT', 'token': 'traitors'},
- {'lead': 'generals', 'lemma': 'general', 'tense': 'PRESENT', 'token': 'generals'},
- {'lead': 'agreement', 'lemma': 'agreement', 'tense': 'PRESENT', 'token': 'agreement'},
- {'lead': 'plan', 'lemma': 'plan', 'tense': 'PRESENT', 'token': 'plan'}]
-
-defaultdict(
-  <class 'set'>,
-  {'action': {'general', 'enemy', 'plan'},
-    'agreement': {'traitor', 'general', 'plan'},
-    'army': {'division', 'enemy', 'general', 'enemy city'},
-    'division': {'enemy', 'general', 'army', 'enemy city'},
-    'enemy': {'action', 'army', 'division', 'enemy city', 'general', 'plan'},
-    'enemy city': {'division', 'general', 'army', 'enemy'},
-    'general': {'action', 'agreement', 'army', 'division', 'enemy', 'enemy city', 'messenger', 'plan', 'traitor'},
-    'messenger': {'general'},
-    'plan': {'action', 'general', 'agreement', 'enemy'},
-    'traitor': {'general', 'agreement'}}
-)
+$ python analyse_narrative.py byzantine.txt draw-graph
 ```
+![graph](img/byzantine.txt.graph.png)
 
 ```
-$ python analyse_narrative -g byzantine.txt
+$ python analyse_narrative.py philosophers.txt draw-graph -layout kawai -kw 8
 ```
+![graph](img/philosophers.txt.graph_kawai_kw8.png)
 
-![graph](byzantine.txt.graph.png)
+```
+$ python analyse_narrative.py philosophers.txt draw-graph -layout kawai -nsubj
+```
+![graph](img/philosophers.txt.graph_kawai_nsubj.png)
+
+```
+$ python analyse_narrative.py hansel_and_gretel.txt draw-graph -avg -nsubj
+```
+![graph](img/hansel_and_gretel.txt.graph_avg_nsubj.png)
+
+```
+$ python analyse_narrative.py hansel_and_gretel.txt draw-graph -avg -nsubj -kw 10
+```
+![graph](img/hansel_and_gretel.txt.graph_kw10_avg_nsubj.png)
+
 
 ### TODO
 
-* Extract better relationships
-* Extract verbs for each noun
+* Extract better relationships (?)
+
