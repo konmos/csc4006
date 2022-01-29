@@ -20,7 +20,7 @@ write about this here, settle on a definition
 
 > We imagine that several divisions of the Byzantine army are camped outside an enemy city, each division commanded by its own general. The generals can communicate with one another only by messenger. After observing the enemy, they must decide upon a common plan of action. However, some of the generals may be traitors, trying to prevent the loyal generals from reaching agreement. ... All loyal generals decide upon the same plan of action... but the traitors may do anything they wish. ... They loyal generals should not only reach agreement, but should agree upon a reasonable plan.
 
-<table style="width: 100%">
+<table>
 <tr>
 <th>Story</th>
 <th>Software</th>
