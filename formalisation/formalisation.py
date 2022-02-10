@@ -10,6 +10,29 @@ class Event:
     triggered_by: t.Optional[str]
 
 
+class Agent:
+    def __init__(self, agent_id: t.Tuple[int, int]) -> None:
+        # agent_id is a two element tuple, where the first element
+        # is the global ID amongst all other agents, and the second element
+        # is an agent-specific ID.
+        # For example;
+        #   world.agents = [Foo, Foo, Bar]
+        #   a = w.add_agent(Bar)
+        #   a._agent_id == (3, 1)
+        self._agent_id = agent_id
+
+    @property
+    def agent_id(self) -> int:
+        return self._agent_id[1]
+
+    @property
+    def global_id(self) -> int:
+        return self._agent_id[0]
+
+    def __repr__(self) -> str:
+        return f'<[Agent] {self.__class__.__name__} {self._agent_id}>'
+
+
 class World:
     """
     A World class keeps track of all agents, componenets, events, and actions.
@@ -42,8 +65,19 @@ class World:
 
         return decorator
 
-    def add_agent(self, agent: object) -> None:
+    def add_agent(self, blueprint: t.Type[Agent], *args, **kwargs) -> Agent:
+        """
+        Construct and Agent from a blueprint class and assign the proper ID's.
+        """
+        _id = [len(self.agents), 0]
+
+        for a in self.agents:
+            if isinstance(a, blueprint):
+                _id[1] += 1
+
+        agent = blueprint(tuple(_id), *args, **kwargs)
         self.agents.append(agent)
+        return agent
 
     def process(self, events: t.List[str]) -> None:
         """

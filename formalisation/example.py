@@ -1,4 +1,4 @@
-from formalisation import World
+from formalisation import World, Agent
 
 w = World()
 
@@ -11,28 +11,35 @@ class ForkInUse(Exception):
     pass
 
 
-# Rework this to make use of ctx (for the forks)
-class Philosopher:
-    def __init__(self, forks):
-        self.is_thinking = True
-        self.is_eating = False
-        self.forks = forks
-
-    @w.event()
-    def think(self, ctx):
-        self.forks[0].in_use = False
-        self.forks[1].in_use = False
+class Philosopher(Agent):
+    def __init__(self, *args, **kwargs):
+        super().__init__ (*args, **kwargs)
 
         self.is_thinking = True
         self.is_eating = False
+
+    def get_forks(self, ctx):
+        return ctx.forks[self.agent_id], ctx.forks[(self.agent_id + 1) % len(ctx.forks)]
 
     @w.event('dine')
+    def think(self, ctx):
+        f = self.get_forks(ctx)
+
+        f[0].in_use = False
+        f[1].in_use = False
+
+        self.is_thinking = True
+        self.is_eating = False
+
+    @w.event('Philosopher.think')
     def eat(self, ctx):
-        if self.forks[0].in_use or self.forks[1].in_use:
+        f = self.get_forks(ctx)
+
+        if f[0].in_use or f[1].in_use:
             raise ForkInUse
 
-        self.forks[0].in_use = True
-        self.forks[1].in_use = True
+        f[0].in_use = True
+        f[1].in_use = True
 
         self.is_eating = True
         self.is_thinking = False
@@ -44,10 +51,8 @@ def dine(ctx):
 
     ctx.forks = [Fork() for _ in range(n_philosophers)]  # as many forks as philosophers
 
-    for x in range(n_philosophers):
-        w.add_agent(Philosopher(
-            (ctx.forks[x], ctx.forks[(x + 1) % len(ctx.forks)])
-        ))
+    for _ in range(n_philosophers):
+        w.add_agent(Philosopher)
 
 
 if __name__ == '__main__':
