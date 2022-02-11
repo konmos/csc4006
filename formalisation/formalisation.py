@@ -40,10 +40,13 @@ class World:
     """
 
     def __init__(self) -> None:
-        self.agents: t.List[object] = []
+        self.agents: t.List[Agent] = []
         # self.components = []
         self.events: t.Mapping[str, Event] = {}
         self.ctx: SimpleNamespace = SimpleNamespace()
+
+    def reset_agents(self):
+        self.agents = []
 
     def add_event(self, event: t.Callable, event_name: str, triggered_by: t.Optional[str] = None) -> None:
         """
@@ -79,12 +82,24 @@ class World:
         self.agents.append(agent)
         return agent
 
-    def process(self, events: t.List[str]) -> None:
+    # def _agent_in_trace(self, event_trace, agent_id):
+    #     if event_trace is None:
+    #         return True
+
+    #     for evt in event_trace:
+    #         if evt.get('agent') == agent_id:
+    #             return True
+
+    #     return False
+
+    def process(self, events: t.List[str], ignore_exceptions: bool = False) -> None:
         """
-        Process a series of events recursively.
-        Each event can trigger other events.
+        Process a series of events recursively. Each event can trigger other events.
         """
+        _events = []
+
         for e in events:
+            trace = []
             evt = self.events[e]
 
             if '.' in e:
@@ -92,14 +107,68 @@ class World:
 
                 for a in self.agents:
                     if a.__class__.__name__ == agent:
-                        # Pass the instance reference
-                        evt.func(a, self.ctx)
-            else:
-                evt.func(self.ctx)
+                        try:
+                            # Pass the instance reference
+                            evt.func(a, self.ctx)
 
-            # Trigger related events
+                            trace.append({
+                                'event': e,
+                                'agent': a._agent_id,
+                                'triggered': []
+                            })
+                        except Exception as exc:
+                            if not ignore_exceptions:
+                                raise exc
+            else:
+                try:
+                    evt.func(self.ctx)
+
+                    trace.append({
+                        'event': e,
+                        'triggered': []
+                    })
+                except Exception as exc:
+                    if not ignore_exceptions:
+                        raise exc
+
+            # Check if the event was triggered.
+            # It may have been triggered only once, or by every (or some) agents.
+            if not trace:
+                continue
+
+            # At this point, we know the event was triggered.
+            # We don't know how many times it was triggered, however, or if any exceptions occurred.
+            # Search for related events and relegate them to a recursive call.
             related_events = [
                 x for x in self.events if e == self.events[x].triggered_by
             ]
 
-            self.process(related_events)
+            triggered = self.process(
+                related_events,
+                ignore_exceptions=ignore_exceptions
+            )
+
+            if len(trace) == 1:
+                trace[0]['triggered'] = triggered
+            else:
+                # agents
+                for t in trace:
+                    for e in triggered:
+                        if t['agent'] == e['agent']:
+                            t['triggered'].append(e)
+
+            _events.extend(trace)
+
+        return _events
+
+    def process_with_callback(self, callback: t.Callable, *args, **kwargs):
+        """
+        Events sometimes initialise the world state such as in the DP example.
+        This results in an inconsistent world when re-running the code.
+        This is a helper method where a callback can be passed which performs any required
+        post-process operations. The callback must accept two arguments - the world
+        instance and the trace of events returned by the `process` method.
+        """
+        ret = self.process(*args, **kwargs)
+        callback(self, ret)
+        return ret
