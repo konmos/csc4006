@@ -14,7 +14,7 @@
         #mynetwork {
             width: 500px;
             height: 500px;
-            background-color: #ffffff;
+            background-color: #222222;
             border: 1px solid lightgray;
             position: relative;
             float: left;
@@ -50,7 +50,7 @@
         
 
         // parsing and collecting nodes and edges from the python
-        nodes = new vis.DataSet([{"id": "dine", "label": "dine", "shape": "dot", "size": 10}, {"id": "Philosopher.think:0", "label": "Philosopher.think:0", "shape": "dot", "size": 10}, {"id": "Philosopher.think:1", "label": "Philosopher.think:1", "shape": "dot", "size": 10}, {"id": "Philosopher.think:2", "label": "Philosopher.think:2", "shape": "dot", "size": 10}, {"id": "Philosopher.think:3", "label": "Philosopher.think:3", "shape": "dot", "size": 10}, {"id": "Philosopher.think:4", "label": "Philosopher.think:4", "shape": "dot", "size": 10}, {"id": "Philosopher.eat:0", "label": "Philosopher.eat:0", "shape": "dot", "size": 10}, {"id": "Philosopher.eat:2", "label": "Philosopher.eat:2", "shape": "dot", "size": 10}]);
+        nodes = new vis.DataSet([{"font": {"color": "white"}, "group": 1, "id": "dine", "label": "dine", "shape": "dot", "size": 15}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.think:0", "label": "Philosopher.think:0", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.think:1", "label": "Philosopher.think:1", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.think:2", "label": "Philosopher.think:2", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.think:3", "label": "Philosopher.think:3", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.think:4", "label": "Philosopher.think:4", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.eat:0", "label": "Philosopher.eat:0", "shape": "dot", "size": 10}, {"font": {"color": "white"}, "group": 2, "id": "Philosopher.eat:2", "label": "Philosopher.eat:2", "shape": "dot", "size": 10}]);
         edges = new vis.DataSet([{"arrows": "to", "from": "dine", "to": "Philosopher.think:0", "weight": 1}, {"arrows": "to", "from": "dine", "to": "Philosopher.think:1", "weight": 1}, {"arrows": "to", "from": "dine", "to": "Philosopher.think:2", "weight": 1}, {"arrows": "to", "from": "dine", "to": "Philosopher.think:3", "weight": 1}, {"arrows": "to", "from": "dine", "to": "Philosopher.think:4", "weight": 1}, {"arrows": "to", "from": "Philosopher.think:0", "to": "Philosopher.eat:0", "weight": 1}, {"arrows": "to", "from": "Philosopher.think:2", "to": "Philosopher.eat:2", "weight": 1}]);
 
         // adding nodes and edges to the graph
