@@ -2,6 +2,58 @@ import typing as t
 from dataclasses import dataclass
 from types import SimpleNamespace
 
+try:
+    import networkx as nx
+    from pyvis.network import Network
+    DRAWING_ENABLED = True
+except ImportError:
+    DRAWING_ENABLED = False
+
+
+Trace = t.List[
+    t.Dict[str, t.Union[str, 'Trace']]
+]
+
+
+def nodes_from_trace(events: Trace) -> t.List[str]:
+    if events is None:
+        return []
+
+    nodes = []
+
+    for event in events:
+        if event.get('agent') is not None:
+            nodes.append(f'{event["event"]}:{event["agent"][0]}')
+        else:
+            nodes.append(event['event'])
+
+        nodes.extend(nodes_from_trace(event['triggered']))
+
+    return nodes
+
+
+def edges_from_trace(events: Trace) -> t.List[t.Tuple[str, str]]:
+    if events is None:
+        return []
+
+    edges = []
+
+    for event in events:
+        for triggered in event['triggered']:
+            src = event['event']
+            dest = triggered['event']
+
+            if triggered.get('agent') is not None:
+                dest += f':{triggered["agent"][0]}'
+
+            if event.get('agent') is not None:
+                src += f':{event["agent"][0]}'
+
+            edges.append((src, dest))
+            edges.extend(edges_from_trace(event['triggered']))
+
+    return edges
+
 
 @dataclass
 class Event:
@@ -45,7 +97,12 @@ class World:
         self.events: t.Mapping[str, Event] = {}
         self.ctx: SimpleNamespace = SimpleNamespace()
 
-    def reset_agents(self):
+        self._last_trace: Trace = None
+
+    def reset_agents(self) -> None:
+        """
+        Remove all agents. Useful for cleanup if they are added by an event.
+        """
         self.agents = []
 
     def add_event(self, event: t.Callable, event_name: str, triggered_by: t.Optional[str] = None) -> None:
@@ -92,10 +149,13 @@ class World:
 
     #     return False
 
-    def process(self, events: t.List[str], ignore_exceptions: bool = False) -> None:
+    def _process(self, events: t.List[str] = None, ignore_exceptions: bool = False) -> Trace:
         """
         Process a series of events recursively. Each event can trigger other events.
         """
+        if events is None:
+            events = self.get_origin_events()
+
         _events = []
 
         for e in events:
@@ -143,7 +203,7 @@ class World:
                 x for x in self.events if e == self.events[x].triggered_by
             ]
 
-            triggered = self.process(
+            triggered = self._process(
                 related_events,
                 ignore_exceptions=ignore_exceptions
             )
@@ -161,7 +221,14 @@ class World:
 
         return _events
 
-    def process_with_callback(self, callback: t.Callable, *args, **kwargs):
+    def process(self, *args, **kwargs) -> Trace:
+        """
+        Run `World._process` and set `self._last_trace`.
+        """
+        self._last_trace = self._process(*args, **kwargs)
+        return self._last_trace
+
+    def process_with_callback(self, callback: t.Callable, *args, **kwargs) -> Trace:
         """
         Events sometimes initialise the world state such as in the DP example.
         This results in an inconsistent world when re-running the code.
@@ -173,14 +240,22 @@ class World:
         callback(self, ret)
         return ret
 
-    def generate_flow_description(self, origin_events: t.List[str] = None):
+    def get_origin_events(self) -> t.List[str]:
+        """
+        Try to automatically find the "origin" events in the world.
+        These are events that are not triggered by any other event
+        and can be run immediately. Events are returned in the order defined.
+        """
+        return [x.name for x in self.events.values() if x.triggered_by is None]
+
+    def generate_flow_description(self, origin_events: t.List[str] = None) -> t.List[str]:
         """
         Generate a description of this world in FDL (Flow Description Language).
         """
         if origin_events is None:
             # To generate the flow description, we start with events that have no
             # triggers. These are the most likely (guaranteed?) to be top level events.
-            origin_events = [x.name for x in self.events.values() if x.triggered_by is None]
+            origin_events = self.get_origin_events()
 
         flow = []
 
@@ -195,3 +270,40 @@ class World:
             flow.extend(self.generate_flow_description(related_events))
 
         return flow
+
+    def draw_trace_graph(self, notebook: bool = True):
+        if self._last_trace is None:
+            return print(
+                'No trace found. Have you called `World.process`?'
+            )
+
+        if not DRAWING_ENABLED:
+            return print(
+                'networkx, matplotlib, pyvis libraries required for drawing functionality.'
+            )
+
+        nodes = nodes_from_trace(self._last_trace)
+        edges = edges_from_trace(self._last_trace)
+
+        G = nx.DiGraph()
+
+        origin_events = [e['event'] for e in self._last_trace]
+
+        for node in nodes:
+            if node in origin_events:
+                # top level events
+                G.add_node(node, size=15, group=1)
+            else:
+                G.add_node(node, group=2)
+
+        G.add_edges_from(edges)
+
+        net = Network(
+            notebook=notebook,
+            directed=True,
+            bgcolor='#222222',
+            font_color='white'
+        )
+
+        net.from_nx(G)
+        return net.show("nx.html")
