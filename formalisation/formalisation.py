@@ -69,6 +69,8 @@ def _graph_from_dfl(dfl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
         nodes.append(source)
 
         for dest in destinations[1:-1].split(','):  # Ignore braces
+            dest = dest.strip()
+
             if not dest:
                 continue
 
