@@ -10,12 +10,11 @@ except ImportError:
     DRAWING_ENABLED = False
 
 
-Trace = t.List[
-    t.Dict[str, t.Union[str, 'Trace']]
-]
+Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
+Nodes = t.List[str]
+Edges = t.List[t.Tuple[str, str]]
 
-
-def nodes_from_trace(events: Trace) -> t.List[str]:
+def _nodes_from_trace(events: Trace) -> Nodes:
     if events is None:
         return []
 
@@ -27,12 +26,12 @@ def nodes_from_trace(events: Trace) -> t.List[str]:
         else:
             nodes.append(event['event'])
 
-        nodes.extend(nodes_from_trace(event['triggered']))
+        nodes.extend(_nodes_from_trace(event['triggered']))
 
     return nodes
 
 
-def edges_from_trace(events: Trace) -> t.List[t.Tuple[str, str]]:
+def _edges_from_trace(events: Trace) -> Edges:
     if events is None:
         return []
 
@@ -50,9 +49,54 @@ def edges_from_trace(events: Trace) -> t.List[t.Tuple[str, str]]:
                 src += f':{event["agent"][0]}'
 
             edges.append((src, dest))
-            edges.extend(edges_from_trace(event['triggered']))
+            edges.extend(_edges_from_trace(event['triggered']))
 
     return edges
+
+
+def _graph_from_dfl(dfl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
+    """
+    Return a set of nodes and edges for a DFL description.
+    """
+    if isinstance(dfl, str):
+        dfl = dfl.split('\n')
+
+    nodes, edges = [], []
+
+    for f in dfl:
+        source, destinations = [x.strip() for x in f.split('->')]
+
+        nodes.append(source)
+
+        for dest in destinations[1:-1].split(','):  # Ignore braces
+            if not dest:
+                continue
+
+            nodes.append(dest)
+            edges.append((source, dest))
+
+    return nodes, edges
+
+
+def visualize_dfl(dfl: t.Union[str, t.List[str]], notebook: bool = True):
+    """
+    Draw the visual representation of a DFL description.
+    """
+    G = nx.DiGraph()
+    nodes, edges = _graph_from_dfl(dfl)
+
+    G.add_nodes_from(nodes)
+    G.add_edges_from(edges)
+
+    net = Network(
+        notebook=notebook,
+        directed=True,
+        bgcolor='#222222',
+        font_color='white'
+    )
+
+    net.from_nx(G)
+    return net.show("dfl.html")
 
 
 @dataclass
@@ -272,6 +316,9 @@ class World:
         return flow
 
     def draw_trace_graph(self, notebook: bool = True):
+        """
+        Visualize the last event trace resulting from processing the world.
+        """
         if self._last_trace is None:
             return print(
                 'No trace found. Have you called `World.process`?'
@@ -282,8 +329,8 @@ class World:
                 'networkx, matplotlib, pyvis libraries required for drawing functionality.'
             )
 
-        nodes = nodes_from_trace(self._last_trace)
-        edges = edges_from_trace(self._last_trace)
+        nodes = _nodes_from_trace(self._last_trace)
+        edges = _edges_from_trace(self._last_trace)
 
         G = nx.DiGraph()
 
@@ -307,3 +354,10 @@ class World:
 
         net.from_nx(G)
         return net.show("nx.html")
+
+    def draw_flow_graph(self, notebook: bool = True):
+        """
+        Visualize the DFL description of this world.
+        """
+        flow = self.generate_flow_description()
+        return visualize_dfl(flow, notebook=notebook)
