@@ -63,16 +63,16 @@ def _edges_from_trace(events: Trace) -> Edges:
     return edges
 
 
-def _graph_from_dfl(dfl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
+def _graph_from_fdl(fdl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
     """
-    Return a set of nodes and edges for a DFL description.
+    Return a set of nodes and edges for a FDL description.
     """
-    if isinstance(dfl, str):
-        dfl = dfl.split('\n')
+    if isinstance(fdl, str):
+        fdl = fdl.split('\n')
 
     nodes, edges = [], []
 
-    for f in dfl:
+    for f in fdl:
         source, destinations = [x.strip() for x in f.split('->')]
 
         nodes.append(source)
@@ -89,15 +89,15 @@ def _graph_from_dfl(dfl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
     return nodes, edges
 
 
-def visualize_dfl(dfl: t.Union[str, t.List[str]], notebook: bool = True):
+def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True):
     """
-    Draw the visual representation of a DFL description.
+    Draw the visual representation of a FDL description.
     """
     if not _check_drawing_libs():
         return
 
     G = nx.DiGraph()
-    nodes, edges = _graph_from_dfl(dfl)
+    nodes, edges = _graph_from_fdl(fdl)
 
     G.add_nodes_from(nodes)
     G.add_edges_from(edges)
@@ -110,7 +110,7 @@ def visualize_dfl(dfl: t.Union[str, t.List[str]], notebook: bool = True):
     )
 
     net.from_nx(G)
-    return net.show("dfl.html")
+    return net.show("fdl.html")
 
 
 @dataclass
@@ -369,7 +369,7 @@ class World:
 
     def draw_flow_graph(self, notebook: bool = True):
         """
-        Visualize the DFL description of this world.
+        Visualize the FDL description of this world.
         """
         flow = self.generate_flow_description()
-        return visualize_dfl(flow, notebook=notebook)
+        return visualize_fdl(flow, notebook=notebook)
