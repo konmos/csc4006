@@ -10,6 +10,15 @@ except ImportError:
     DRAWING_ENABLED = False
 
 
+def _check_drawing_libs():
+    if not DRAWING_ENABLED:
+        print(
+            'networkx, matplotlib, pyvis libraries required for drawing functionality.'
+        )
+
+    return DRAWING_ENABLED
+
+
 Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
 Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
@@ -84,6 +93,9 @@ def visualize_dfl(dfl: t.Union[str, t.List[str]], notebook: bool = True):
     """
     Draw the visual representation of a DFL description.
     """
+    if not _check_drawing_libs():
+        return
+
     G = nx.DiGraph()
     nodes, edges = _graph_from_dfl(dfl)
 
@@ -321,14 +333,12 @@ class World:
         """
         Visualize the last event trace resulting from processing the world.
         """
+        if not _check_drawing_libs():
+            return
+
         if self._last_trace is None:
             return print(
                 'No trace found. Have you called `World.process`?'
-            )
-
-        if not DRAWING_ENABLED:
-            return print(
-                'networkx, matplotlib, pyvis libraries required for drawing functionality.'
             )
 
         nodes = _nodes_from_trace(self._last_trace)
