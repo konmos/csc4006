@@ -41,6 +41,10 @@ The term "plot" is quite similar to the term "story" in that it seems to have ma
 
 "The term "plot" designates the ways in which the events and characters' actions in a story are arranged and how this arrangement in turn facilitates identification of their motivations and consequences... Plot therefore lies between the events of a narrative on the level of story and their presentation on the level of discourse."
 
+What interests us here the most, as software engineers, is the fact that the plot deals with **events** and **actions**. This conclusion is quite similar to that arrived at by Sileno et al. in the paper "Legal Knowledge Conveyed by Narratives: Towards a Representational Model" in which the *story* is defined as a partially ordered set of events linked by a series of conditions. The *plot* then is said to impose a series of constraints on the ordering of these events. Although, Sileno et al. propose a good and comprehensive explanation of story and plot, we found that the line between conditions and events is not clear cut and there is some overlap between the two. From a software perspective, it is more beneficial to think of it as events and actions instead. Moreover, in the software engineering context, the strict ordering of events is not as crucial - it is not *irrelevant* but also not entirely integral to the solution.
+
+
+*[https://en.wikipedia.org/wiki/Plot_(narrative)] See this for more details. Plot implies causality.*
 
 # A formal analysis of worked examples
 
@@ -49,17 +53,23 @@ With the above in mind, we now propose that any story which falls into the above
 We propose that a piece of software, similar to a story, can be described by way of a series of essential elements. These are as follows;
 
 * Agents
-* Context
+* Events
+* Actions
 * Components
+* Flow
 
 We define these elements;
 * Agents - the primary actors of the software solution. This is where most of the logic and "executable" code will reside. The agents are generally derived directly from the *characters* of the story, however, this may not always be the case.
-* Context - similar to the setting, this describes the context within which the software solution operates and within which the agents perform their actions.
 * Components - miscellaneous elements of the software solution that make up neither the agents nor context, but are nonetheless, integral to the software solution. Generally, the components are what tie the agents, context, and overarching software solution together.
+* Events - these are global events that occur in a world and can trigger other events.
+* Actions - actions are similar to events, however, they are not global but local to the agents. For example `dine` can be a global event whereas `Philosopher.eat` is an action.
+* Flow - this describes the interaction between the events and the agents. This is done by what we refer to as FDL - Flow Description Language.
 
 As will be clear from the following examples, these elements can be generally derived directly from the elements of the story. They may not always be, however, direct, one-to-one equivalents.
 
 Furthermore, it is important to note that in certain circumstances certain story elements may need to be inferred. For example, it is often the case that the resolution is not explicitly given in the story but we, nonetheless, have a good idea of what it might be.
+
+**NOTE: Currently only the DP example is up to date.**
 
 ## Byzantine Generals Problem
 
@@ -149,7 +159,9 @@ setting:
 - Table
 
 plot:
-- Philosophers think and eat
+- Table is laid for each philosopher, with two forks next to each plate.
+- Two forks are needed for a philosopher to eat.
+- The philosophers alternate thinking and eating.
 
 conflict:
   Eating spaghetti with a limited number of forks
@@ -165,19 +177,24 @@ resolution:
 agents:
 - Philosopher
 
-context:
-- Table
+events:
+- dine
+
+actions:
+- Philosopher.eat
+- Philosopher.think
 
 components:
 - Fork
+
+flow:
+- dine -> Philosopher.think
+- Philosopher.think -> Philosopher.eat
 ```
 
 </td>
 </tr>
 </table>
-
-Notes:
-* Here "table" refers to, either, the list of philosophers or the `Philosopher.table` attribute
 
 ## Hansel and Gretel
 
@@ -397,29 +414,17 @@ components:
 </table>
 
 
-# Further Work
+# TODO / Further Work
 
-* Python framework for "story-thinking" software design. Perhaps something like;
-
-    ```python
-    s = Story()
-
-    @Agent
-    class Philosopher:
-        ...
-
-    @ThreadedAgent
-    class ThreadedPhilosopher:
-        ...
-
-    @Component
-    class Fork:
-        ...
-
-    s.context.table = [Philosopher() for _ in range(5)]
-
-    # s.draw_graph()
-    # ...
-    ```
-
-* Formal description of a new software development methodology based on "story-thinking".
+* Complete the other examples.
+* Potential visualization improvements.
+  * Node colors, sizes, weights, relationships, etc...
+  * Display agents/components.
+  * Agent/component interactions.
+* Threading support.
+* Live stepping through events.
+* Web interface (?)
+* Command line interface.
+* More examples/more complex example.
+* More configurability (?)
+* Figure out components (maybe they need removed?)
