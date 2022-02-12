@@ -172,3 +172,26 @@ class World:
         ret = self.process(*args, **kwargs)
         callback(self, ret)
         return ret
+
+    def generate_flow_description(self, origin_events: t.List[str] = None):
+        """
+        Generate a description of this world in FDL (Flow Description Language).
+        """
+        if origin_events is None:
+            # To generate the flow description, we start with events that have no
+            # triggers. These are the most likely (guaranteed?) to be top level events.
+            origin_events = [x.name for x in self.events.values() if x.triggered_by is None]
+
+        flow = []
+
+        for evt in origin_events:
+            related_events = [
+                x for x in self.events if evt == self.events[x].triggered_by
+            ]
+
+            # First generate the flow for this top level event.
+            # Then, we do the same for each related event.
+            flow.append(f'{evt} -> {{{",".join([e for e in related_events])}}}')
+            flow.extend(self.generate_flow_description(related_events))
+
+        return flow
