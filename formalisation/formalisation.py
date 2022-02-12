@@ -353,7 +353,7 @@ class World:
         )
 
         net.from_nx(G)
-        return net.show("nx.html")
+        return net.show("trace.html")
 
     def draw_flow_graph(self, notebook: bool = True):
         """
