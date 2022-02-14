@@ -159,7 +159,7 @@ setting:
 - Table
 
 plot:
-- Table is laid for each philosopher, with two forks next to each plate.
+- Table laid for each philosopher; two forks next to each plate.
 - Two forks are needed for a philosopher to eat.
 - The philosophers alternate thinking and eating.
 
@@ -190,6 +190,7 @@ components:
 flow:
 - dine -> {Philosopher.think}
 - Philosopher.think -> {Philosopher.eat}
+- Philosopher.eat -> {}
 ```
 
 </td>
