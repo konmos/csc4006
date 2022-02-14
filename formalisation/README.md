@@ -188,8 +188,8 @@ components:
 - Fork
 
 flow:
-- dine -> Philosopher.think
-- Philosopher.think -> Philosopher.eat
+- dine -> {Philosopher.think}
+- Philosopher.think -> {Philosopher.eat}
 ```
 
 </td>
