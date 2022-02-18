@@ -1,4 +1,4 @@
-from formalisation import World, Agent
+from ..formalisation import World, Agent
 
 w = World()
 
