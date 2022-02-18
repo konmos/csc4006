@@ -1,4 +1,5 @@
 import typing as t
+from collections import namedtuple
 from dataclasses import dataclass
 from types import SimpleNamespace
 
@@ -18,6 +19,19 @@ def _check_drawing_libs():
 
     return DRAWING_ENABLED
 
+
+# EventConfig allows the user to overwrite behavior of event
+# propagation on the fly;
+#  targets = list of targets this event should propagate to (agents)
+#  no_propagate = boolean indicating whether related events should be triggered
+#  event_overwrite = trigger this event instead
+#  args = args to pass to *ALL* triggered events
+#  kwargs = kwargs to pass to *ALL* triggered events
+EventConfig = namedtuple(
+    'EventConfig',
+    ['targets', 'no_propagate', 'event_overwrite', 'args', 'kwargs'],
+    defaults=[None, False, None, [], {}]
+)
 
 Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
 Nodes = t.List[str]
@@ -166,6 +180,7 @@ class World:
     def add_event(self, event: t.Callable, event_name: str, triggered_by: t.Optional[str] = None) -> None:
         """
         Create and add a new event instance.
+        Events should return either `None` or `EventConfig`.
         """
         self.events[event_name] = Event(
             name=event_name,
@@ -207,7 +222,30 @@ class World:
 
     #     return False
 
-    def _process(self, events: t.List[str] = None, ignore_exceptions: bool = False) -> Trace:
+    def _get_related_events(self, event_name, cfg=None):
+        """
+        Generate a list of events to trigger next, taking into account the current config.
+        """
+        cfg = cfg or EventConfig()
+
+        # Force no event triggers.
+        if cfg.no_propagate:
+            return []
+
+        # Return the event specified instead.
+        if cfg.event_overwrite is not None:
+            return [(cfg.event_overwrite, cfg)]
+
+        # The config gets passed on to all further events but
+        # not all options will be applicable or make sense in this context.
+        # This is necessary, however, to pas the options that *do* make sense
+        # for these events, such as args and kwargs.
+        return [
+            (x.name, cfg) for x in self.events.values() if event_name == x.triggered_by
+        ]
+
+    def _process(self, events: t.List[t.Union[str, t.Tuple[str, EventConfig]]] = None,
+                 ignore_exceptions: bool = False) -> Trace:
         """
         Process a series of events recursively. Each event can trigger other events.
         """
@@ -217,34 +255,51 @@ class World:
         _events = []
 
         for e in events:
-            trace = []
-            evt = self.events[e]
+            if isinstance(e, tuple):
+                event_name, cfg = e
+            else:
+                event_name, cfg = e, EventConfig()
 
-            if '.' in e:
-                agent = e.split('.')[0]
+            trace = []
+            evt = self.events[event_name]
+
+            # _next_events keeps track of all events which should be triggered next.
+            # Care should be taken to prevent events being executed multiple times.
+            # _done_configs keeps track of which event configurations have already
+            # been passed to _next_events. This helps avoid duplicates.
+            _next_events, _done_configs = [], []
+
+            if '.' in event_name:
+                agent = event_name.split('.')[0]
 
                 for a in self.agents:
-                    if a.__class__.__name__ == agent:
+                    if a.__class__.__name__ == agent and (cfg.targets is None or a in cfg.targets):
                         try:
                             # Pass the instance reference
-                            evt.func(a, self.ctx)
+                            ret = evt.func(a, self.ctx, *cfg.args, **cfg.kwargs)
 
                             trace.append({
-                                'event': e,
+                                'event': event_name,
                                 'agent': a._agent_id,
                                 'triggered': []
                             })
+
+                            if ret not in _done_configs:
+                                _done_configs.append(ret)
+                                _next_events.extend(self._get_related_events(event_name, ret))
                         except Exception as exc:
                             if not ignore_exceptions:
                                 raise exc
             else:
                 try:
-                    evt.func(self.ctx)
+                    ret = evt.func(self.ctx, *cfg.args, **cfg.kwargs)
 
                     trace.append({
-                        'event': e,
+                        'event': event_name,
                         'triggered': []
                     })
+
+                    _next_events.extend(self._get_related_events(event_name, ret))
                 except Exception as exc:
                     if not ignore_exceptions:
                         raise exc
@@ -257,9 +312,7 @@ class World:
             # At this point, we know the event was triggered.
             # We don't know how many times it was triggered, however, or if any exceptions occurred.
             # Search for related events and relegate them to a recursive call.
-            related_events = [
-                x for x in self.events if e == self.events[x].triggered_by
-            ]
+            related_events = _next_events
 
             triggered = self._process(
                 related_events,

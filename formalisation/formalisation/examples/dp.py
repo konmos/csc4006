@@ -56,4 +56,7 @@ def dine(ctx):
 
 
 if __name__ == '__main__':
-    w.process(['dine'])
+    w.process_with_callback(
+        lambda w, r: w.reset_agents(),
+        ignore_exceptions=True
+    )
