@@ -359,26 +359,21 @@ class World:
         """
         return [x.name for x in self.events.values() if x.triggered_by is None]
 
-    def generate_flow_description(self, origin_events: t.List[str] = None) -> t.List[str]:
+    def generate_fdl(self) -> t.List[str]:
         """
         Generate a description of this world in FDL (Flow Description Language).
+        This method generates the FDL based on a set of "origin events"
+        from which the FDL stems. To generate generic FDL based on ALL events,
+        use `generate_fdl`.
         """
-        if origin_events is None:
-            # To generate the flow description, we start with events that have no
-            # triggers. These are the most likely (guaranteed?) to be top level events.
-            origin_events = self.get_origin_events()
-
         flow = []
 
-        for evt in origin_events:
+        for e in self.events.values():
             related_events = [
-                x for x in self.events if evt == self.events[x].triggered_by
+                x.name for x in self.events.values() if x.triggered_by == e.name
             ]
 
-            # First generate the flow for this top level event.
-            # Then, we do the same for each related event.
-            flow.append(f'{evt} -> {{{",".join([e for e in related_events])}}}')
-            flow.extend(self.generate_flow_description(related_events))
+            flow.append(f'{e.name} -> {{{",".join([e for e in related_events])}}}')
 
         return flow
 
@@ -424,5 +419,5 @@ class World:
         """
         Visualize the FDL description of this world.
         """
-        flow = self.generate_flow_description()
+        flow = self.generate_fdl()
         return visualize_fdl(flow, notebook=notebook)
