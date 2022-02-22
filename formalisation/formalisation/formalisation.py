@@ -1,6 +1,8 @@
 import typing as t
 from collections import namedtuple
 from dataclasses import dataclass
+from threading import Thread
+from queue import Empty, Queue
 from types import SimpleNamespace
 
 try:
@@ -157,6 +159,38 @@ class Agent:
         return f'<[Agent] {self.__class__.__name__} {self._agent_id}>'
 
 
+class ThreadedAgent(Thread, Agent):
+    def __init__(self, agent_id: t.Tuple[int, int], *args, **kwargs) -> None:
+        Agent.__init__(self, agent_id)
+        Thread.__init__(self, *args, **kwargs)
+
+        self._stop_cycle = False
+        self.event_q = Queue()
+
+    def dispatch_event(self, event, *args):
+        self.event_q.put((event, *args))
+
+    def process_event(self, event, ctx, *args, **kwargs):
+        raise NotImplementedError
+
+    def join(self, *args, **kwargs):
+        self._stop_cycle = True
+        super().join(*args, **kwargs)
+
+    def run(self):
+        while not self._stop_cycle:
+            try:
+                event, q, ctx, args, kwargs = self.event_q.get(timeout=2)
+            except Empty:
+                continue
+
+            try:
+                ret = self.process_event(event, ctx, *args, **kwargs)
+                q.put((self, None, ret))
+            except Exception as e:
+                q.put((self, e, None))
+
+
 class World:
     """
     A World class keeps track of all agents, componenets, events, and actions.
@@ -272,8 +306,19 @@ class World:
             if '.' in event_name:
                 agent = event_name.split('.')[0]
 
-                for a in self.agents:
-                    if a.__class__.__name__ == agent and (cfg.targets is None or a in cfg.targets):
+                # Filter out appropriate agents.
+                agents, q = [x for x in self.agents if x.__class__.__name__ == agent], None
+
+                if cfg.targets is not None:
+                    agents = [x for x in agents if x in cfg.targets]
+
+                # Output queue for threading.
+                if agents and isinstance(agents[0], ThreadedAgent):
+                    q = Queue(maxsize=len(agents))
+
+                for a in agents:
+                    if q is None:
+                        # Non-threaded agent
                         try:
                             # Pass the instance reference
                             ret = evt.func(a, self.ctx, *cfg.args, **cfg.kwargs)
@@ -290,6 +335,36 @@ class World:
                         except Exception as exc:
                             if not ignore_exceptions:
                                 raise exc
+                    else:
+                        # Threaded agent.
+                        # Here we just dispatch the events to all applicable agents.
+                        # The results get collected later.
+                        a.dispatch_event(event_name, q, self.ctx, cfg.args, cfg.kwargs)
+
+                # If we had threaded agents, we must collect and process all results.
+                if q is not None:
+                    # Block until all results have been processed.
+                    _processed = 0  # <= len(agents)
+
+                    while _processed != len(agents):
+                        # (agent: Agent, exception: Exception | None, ret: Any)
+                        a, exception, ret = q.get()
+
+                        if exception is None:
+                            trace.append({
+                                'event': event_name,
+                                'agent': a._agent_id,
+                                'triggered': []
+                            })
+
+                            if ret not in _done_configs:
+                                _done_configs.append(ret)
+                                _next_events.extend(self._get_related_events(event_name, ret))
+                        else:
+                            if not ignore_exceptions:
+                                raise exception
+
+                        _processed += 1
             else:
                 try:
                     ret = evt.func(self.ctx, *cfg.args, **cfg.kwargs)
@@ -337,6 +412,14 @@ class World:
         Run `World._process` and set `self._last_trace`.
         """
         self._last_trace = self._process(*args, **kwargs)
+
+        # We must tell all threaded agents to quit.
+        # TODO: Should we somehow start them here also?
+        #       This gets tricky if events create agents.
+        for a in self.agents:
+            if isinstance(a, ThreadedAgent):
+                a.join()
+
         return self._last_trace
 
     def process_with_callback(self, callback: t.Callable, *args, **kwargs) -> Trace:
