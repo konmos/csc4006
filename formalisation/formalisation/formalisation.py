@@ -39,6 +39,7 @@ Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
 Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
 
+
 def _nodes_from_trace(events: Trace) -> Nodes:
     if events is None:
         return []
@@ -56,27 +57,28 @@ def _nodes_from_trace(events: Trace) -> Nodes:
     return nodes
 
 
-def _edges_from_trace(events: Trace) -> Edges:
+def _edges_from_trace(events: Trace, last_event: str = None) -> Edges:
     if events is None:
         return []
 
     edges = []
 
     for event in events:
-        for triggered in event['triggered']:
-            src = event['event']
-            dest = triggered['event']
-
-            if triggered.get('agent') is not None:
-                dest += f':{triggered["agent"][0]}'
+        if last_event is not None:
+            src = last_event['event']
+            dest = event['event']
 
             if event.get('agent') is not None:
-                src += f':{event["agent"][0]}'
+                dest += f':{event["agent"][0]}'
+
+            if last_event.get('agent') is not None:
+                src += f':{last_event["agent"][0]}'
 
             edges.append((src, dest))
-            edges.extend(_edges_from_trace(event['triggered']))
 
-    return edges
+        edges.extend(_edges_from_trace(event['triggered'], event))
+
+    return set(edges)
 
 
 def _graph_from_fdl(fdl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
