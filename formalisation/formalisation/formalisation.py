@@ -40,7 +40,8 @@ Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
 
 
-def _graph_from_trace(events: Trace, last_event: str = None) -> Edges:
+def _graph_from_trace(events: Trace, unique_events: bool = False, *,
+                      last_event: str = None, event_counter: int = 0) -> Edges:
     """
     Recursively parse an execution trace and return a set of nodes and edges
     to represent it graphically.
@@ -49,9 +50,14 @@ def _graph_from_trace(events: Trace, last_event: str = None) -> Edges:
         return []
 
     nodes, edges = [], []
+    _event_counter = event_counter
 
     for event in events:
-        dest = event['event']
+        if not unique_events:
+            dest = event['event']
+        else:
+            dest = f'{_event_counter}:{event["event"]}'
+            _event_counter += 1
 
         if event.get('agent') is not None:
             dest += f':{event["agent"][0]}'
@@ -59,17 +65,16 @@ def _graph_from_trace(events: Trace, last_event: str = None) -> Edges:
         nodes.append(dest)
 
         if last_event is not None:
-            src = last_event['event']
+            edges.append((last_event, dest))
 
-            if last_event.get('agent') is not None:
-                src += f':{last_event["agent"][0]}'
-
-            edges.append((src, dest))
-
-        n, e = _graph_from_trace(event['triggered'], event)
+        n, e = _graph_from_trace(
+            event['triggered'], unique_events, last_event=dest, event_counter=_event_counter
+        )
 
         edges.extend(e)
         nodes.extend(n)
+
+        _event_counter += len(n)
 
     return set(nodes), set(edges)
 
@@ -457,7 +462,7 @@ class World:
 
         return flow
 
-    def draw_trace_graph(self, notebook: bool = True):
+    def draw_trace_graph(self, notebook: bool = True, unique_events: bool = False):
         """
         Visualize the last event trace resulting from processing the world.
         """
@@ -469,14 +474,14 @@ class World:
                 'No trace found. Have you called `World.process`?'
             )
 
-        nodes, edges = _graph_from_trace(self._last_trace)
+        nodes, edges = _graph_from_trace(self._last_trace, unique_events)
 
         G = nx.DiGraph()
 
         origin_events = [e['event'] for e in self._last_trace]
 
         for node in nodes:
-            if node in origin_events:
+            if node in origin_events or (unique_events and node.split(':', 1)[1] in origin_events):
                 # top level events
                 G.add_node(node, size=15, group=1)
             else:
