@@ -40,45 +40,38 @@ Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
 
 
-def _nodes_from_trace(events: Trace) -> Nodes:
+def _graph_from_trace(events: Trace, last_event: str = None) -> Edges:
+    """
+    Recursively parse an execution trace and return a set of nodes and edges
+    to represent it graphically.
+    """
     if events is None:
         return []
 
-    nodes = []
+    nodes, edges = [], []
 
     for event in events:
+        dest = event['event']
+
         if event.get('agent') is not None:
-            nodes.append(f'{event["event"]}:{event["agent"][0]}')
-        else:
-            nodes.append(event['event'])
+            dest += f':{event["agent"][0]}'
 
-        nodes.extend(_nodes_from_trace(event['triggered']))
+        nodes.append(dest)
 
-    return nodes
-
-
-def _edges_from_trace(events: Trace, last_event: str = None) -> Edges:
-    if events is None:
-        return []
-
-    edges = []
-
-    for event in events:
         if last_event is not None:
             src = last_event['event']
-            dest = event['event']
-
-            if event.get('agent') is not None:
-                dest += f':{event["agent"][0]}'
 
             if last_event.get('agent') is not None:
                 src += f':{last_event["agent"][0]}'
 
             edges.append((src, dest))
 
-        edges.extend(_edges_from_trace(event['triggered'], event))
+        n, e = _graph_from_trace(event['triggered'], event)
 
-    return set(edges)
+        edges.extend(e)
+        nodes.extend(n)
+
+    return set(nodes), set(edges)
 
 
 def _graph_from_fdl(fdl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
@@ -476,8 +469,7 @@ class World:
                 'No trace found. Have you called `World.process`?'
             )
 
-        nodes = _nodes_from_trace(self._last_trace)
-        edges = _edges_from_trace(self._last_trace)
+        nodes, edges = _graph_from_trace(self._last_trace)
 
         G = nx.DiGraph()
 
