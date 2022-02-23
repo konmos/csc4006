@@ -161,8 +161,8 @@ class Agent:
 
 class ThreadedAgent(Thread, Agent):
     def __init__(self, agent_id: t.Tuple[int, int], *args, **kwargs) -> None:
-        Agent.__init__(self, agent_id)
         Thread.__init__(self, *args, **kwargs)
+        Agent.__init__(self, agent_id)
 
         self._stop_cycle = False
         self.event_q = Queue()
@@ -171,7 +171,9 @@ class ThreadedAgent(Thread, Agent):
         self.event_q.put((event, *args))
 
     def process_event(self, event, ctx, *args, **kwargs):
-        raise NotImplementedError
+        # Event will be of the format "Class.event"
+        evt = event.split('.')[-1]
+        return getattr(self, evt)(ctx, *args, **kwargs)
 
     def join(self, *args, **kwargs):
         self._stop_cycle = True

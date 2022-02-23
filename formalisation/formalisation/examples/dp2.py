@@ -45,16 +45,6 @@ class Philosopher(ThreadedAgent):
         self.is_eating = True
         self.is_thinking = False
 
-    def process_event(self, event, ctx, *args, **kwargs):
-        # TODO: Better interface for this?
-        #       Some way to automatically call events?
-        if event == 'Philosopher.eat':
-            self.eat(ctx, *args, **kwargs)
-        else:
-            self.think(ctx, *args, **kwargs)
-
-        time.sleep(2)
-
 
 @w.event()
 def dine(ctx):
