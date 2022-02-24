@@ -85,19 +85,17 @@ Furthermore, it is important to note that in certain circumstances certain story
 
 ```yaml
 characters:
-- Loyal generals
-- Traitorous generals
-- Messengers
+- Generals
 
 setting:
 - Byzantine army
 - Enemy city
 
 plot:
-- Divisions of army camped outside enemy city
-- Generals communicate their observations via messenger
+- Divisions of army camped outside enemy city.
+- Generals share their observations.
 - Traitorous generals preventing loyal generals from
-  reaching agreement
+  reaching agreement.
 
 conflict:
   Communication between loyal generals
@@ -113,27 +111,34 @@ resolution:
 ```yaml
 agents:
 - General
-- Messenger
 
-context:
-- Byzantine army
-- Enemy city
+events:
+- camp
+- make_order
+
+actions:
+- General.speak
+- General.listen
+- General.make_observation
 
 components:
 - Observation
 - Decision
 - Plan
+- Enemy City
+
+flow:
+- camp -> {General.make_observation}
+- General.make_observation -> {}
+- make_order -> {General.speak}
+- General.speak -> {General.listen}
+- General.listen -> {General.speak}
 ```
 
 </td>
 </tr>
 </table>
 
-Notes:
-* "Observation" is a key concept in the source code
-* "Decision" is whatever the generals decide upon hearing observations
-* "Plan" is the final plan agreed to by the generals (if any)
-* "Byzantine army" could be the list of generals that is constructed at the beginning of the program
 
 ## Dining Philosophers
 
@@ -217,9 +222,10 @@ characters:
 
 setting:
 - Forest
+- Home
 
 plot:
-- H&G get lost in a forest
+- H&G get lost in a forest.
 - Hansel finds the way back using
   pebbles he collected/dropped earlier.
 
@@ -237,19 +243,27 @@ resolution:
 agents:
 - Hansel
 
-context:
-- Forest
+events:
+- home
+- forest
+
+actions:
+- Hansel.step_forward
+- Hansel.follow_back
 
 components:
 - Pebble
+
+flow:
+- home -> {Hansel.step_forward}
+- forest -> {Hansel.follow_back}
+- Hansel.step_forward -> {Hansel.step_forward, forest}
+- Hansel.follow_back -> {Hansel.follow_back. home}
 ```
 
 </td>
 </tr>
 </table>
-
-Notes:
-* Here, "context" is a little tricky. There are two H&G solutions here; one which works with co-ordinates mapped to a 2d space, the other which works with node graphs. In either case, these are quite abstract concepts. They could effectively represent the "forest" in the story, thus this is what was settled for here.
 
 
 ## Winograd and Flores
@@ -417,15 +431,15 @@ components:
 
 # TODO / Further Work
 
-* Complete the other examples.
-* Potential visualization improvements.
+- [x] Complete the other examples.
+- [ ] Potential visualization improvements.
   * Node colors, sizes, weights, relationships, etc...
   * Display agents/components.
   * Agent/component interactions.
-* Threading support.
-* Live stepping through events.
-* Web interface (?)
-* Command line interface.
-* More examples/more complex example.
-* More configurability (?)
-* Figure out components (maybe they need removed?)
+- [x] Threading support.
+- [ ] Live stepping through events.
+- [ ] Web interface (?)
+- [ ] Command line interface.
+- [ ] More examples/more complex example.
+- [ ] More configurability (?)
+- [ ] Figure out components (maybe they need removed?)
