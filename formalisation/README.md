@@ -69,7 +69,6 @@ As will be clear from the following examples, these elements can be generally de
 
 Furthermore, it is important to note that in certain circumstances certain story elements may need to be inferred. For example, it is often the case that the resolution is not explicitly given in the story but we, nonetheless, have a good idea of what it might be.
 
-**NOTE: Currently only the DP example is up to date.**
 
 ## Byzantine Generals Problem
 
