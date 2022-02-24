@@ -29,6 +29,9 @@ def _check_drawing_libs():
 #  event_overwrite = trigger this event instead
 #  args = args to pass to *ALL* triggered events
 #  kwargs = kwargs to pass to *ALL* triggered events
+#
+# NOTE: Complex examples which rely on EventConfig generate
+# unreliable FDL. What can we do about this?
 EventConfig = namedtuple(
     'EventConfig',
     ['targets', 'no_propagate', 'event_overwrite', 'args', 'kwargs'],
