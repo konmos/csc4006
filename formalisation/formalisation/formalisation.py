@@ -109,7 +109,7 @@ def _graph_from_fdl(fdl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
     return nodes, edges
 
 
-def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True):
+def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True, fname: str = None):
     """
     Draw the visual representation of a FDL description.
     """
@@ -130,7 +130,7 @@ def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True):
     )
 
     net.from_nx(G)
-    return net.show("fdl.html")
+    return net.show(fname or 'fdl.html')
 
 
 @dataclass
@@ -563,7 +563,7 @@ class World:
 
         return flow
 
-    def draw_trace_graph(self, notebook: bool = True, unique_events: bool = False):
+    def draw_trace_graph(self, notebook: bool = True, unique_events: bool = False, fname: str = None):
         """
         Visualize the last event trace resulting from processing the world.
         """
@@ -598,11 +598,11 @@ class World:
         )
 
         net.from_nx(G)
-        return net.show("trace.html")
+        return net.show(fname or 'trace.html')
 
-    def draw_flow_graph(self, notebook: bool = True):
+    def draw_flow_graph(self, notebook: bool = True, fname: str = None):
         """
         Visualize the FDL description of this world.
         """
         flow = self.generate_fdl()
-        return visualize_fdl(flow, notebook=notebook)
+        return visualize_fdl(flow, notebook=notebook, fname=fname)
