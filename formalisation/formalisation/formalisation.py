@@ -41,6 +41,7 @@ EventConfig = namedtuple(
 Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
 Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
+EventType = t.Union[str, t.Tuple[str, EventConfig]]
 
 
 def _graph_from_trace(events: Trace, unique_events: bool = False, *,
@@ -139,6 +140,25 @@ class Event:
     triggered_by: t.Optional[str]
 
 
+@dataclass
+class ProcessingStep:
+    """
+    Marker used for live stepping.
+    """
+    # The event representing this step.
+    event: EventType
+
+    # Have we processed this event before?
+    done: bool = False
+
+    # List of agents which have successfully executed this event.
+    # If this is a global event, -1 is appended on success instead.
+    agents: t.List[t.Union[int, t.Tuple[int, int]]] = None
+
+    # List of steps which this event triggered.
+    triggered: t.List['ProcessingStep'] = None
+
+
 class Agent:
     def __init__(self, agent_id: t.Tuple[int, int]) -> None:
         # agent_id is a two element tuple, where the first element
@@ -209,6 +229,7 @@ class World:
         self.ctx: SimpleNamespace = SimpleNamespace()
 
         self._last_trace: Trace = None
+        self._processing_state = None  # Used for live stepping
 
     def reset_agents(self) -> None:
         """
@@ -283,21 +304,46 @@ class World:
             (x.name, cfg) for x in self.events.values() if event_name == x.triggered_by
         ]
 
-    def _process(self, events: t.List[t.Union[str, t.Tuple[str, EventConfig]]] = None,
-                 ignore_exceptions: bool = False) -> Trace:
+    def _process(self, events: t.List[t.Union[EventType, ProcessingStep]] = None,
+                 ignore_exceptions: bool = False, single_step: bool = False) -> t.Tuple[Trace, bool]:
         """
         Process a series of events recursively. Each event can trigger other events.
+
+        Return a tuple containing the trace of events, and a boolean indicating whether or not
+        we made a new step. If no step has been made, it can be concluded that execution is over.
         """
         if events is None:
             events = self.get_origin_events()
 
         _events = []
 
-        for e in events:
-            if isinstance(e, tuple):
-                event_name, cfg = e
+        # Used for live stepping - indicates if we made a new step in this
+        # recursive step. If so, we have to return.
+        # Live stepping works almost identical to a normal execution with the exception
+        # that we don't execute events which were previously executed. We only
+        # update the trace in these circumstances. Thus, we must keep track
+        # of which events are "done" and also whether the event was executed
+        # and by whom. This is because an event may not necessarily be a part of the
+        # trace, even if it is "done" (i.e., due to exceptions).
+        _stepped = False
+
+        for event in events:
+            # If we made a step, return.
+            # Remember that this also must be checked by all upper levels
+            # of the recursion (if any).
+            if single_step and _stepped:
+                return _events, True
+
+            _e = event
+
+            # If `single_step` is true, events MUST have the type `list[ProcessingStep]`.
+            if single_step:
+                _e = event.event
+
+            if isinstance(_e, tuple):
+                event_name, cfg = _e
             else:
-                event_name, cfg = e, EventConfig()
+                event_name, cfg = _e, EventConfig()
 
             trace = []
             evt = self.events[event_name]
@@ -321,27 +367,43 @@ class World:
                 if agents and isinstance(agents[0], ThreadedAgent):
                     q = Queue(maxsize=len(agents))
 
+                # Below this point, the construct `if not single_step or not event.done` is used
+                # quite frequently. For brevity, it will be explained here. It is quite messy
+                # and not ideal, however, what we are essenitally just ensuring that *either*
+                # this event has NOT already been processed previously OR we are not live stepping
+                # (in which case we should process it anyway).
+
                 for a in agents:
                     if q is None:
                         # Non-threaded agent
                         try:
-                            # Pass the instance reference
-                            ret = evt.func(a, self.ctx, *cfg.args, **cfg.kwargs)
+                            if not single_step or not event.done:
+                                # We are not live stepping, or this event hasn't been done yet.
+                                ret = evt.func(a, self.ctx, *cfg.args, **cfg.kwargs)  # Pass the instance reference
 
-                            trace.append({
-                                'event': event_name,
-                                'agent': a._agent_id,
-                                'triggered': []
-                            })
+                            if single_step and not event.done:
+                                # We are live stepping and this event is new.
+                                event.agents.append(a._agent_id)
 
-                            if ret not in _done_configs:
-                                _done_configs.append(ret)
-                                _next_events.extend(self._get_related_events(event_name, ret))
+                            if not single_step or a._agent_id in event.agents:
+                                # We are not live stepping OR this agent already executed this event.
+                                trace.append({
+                                    'event': event_name,
+                                    'agent': a._agent_id,
+                                    'triggered': []
+                                })
+
+                            if not single_step or not event.done:
+                                # We are not live stepping OR this event hasn't been processed yet.
+                                if ret not in _done_configs:
+                                    _done_configs.append(ret)
+                                    _next_events.extend(self._get_related_events(event_name, ret))
                         except Exception as exc:
                             if not ignore_exceptions:
                                 raise exc
                     else:
                         # Threaded agent.
+                        # Live stepping not supported here.
                         # Here we just dispatch the events to all applicable agents.
                         # The results get collected later.
                         a.dispatch_event(event_name, q, self.ctx, cfg.args, cfg.kwargs)
@@ -371,52 +433,70 @@ class World:
 
                         _processed += 1
             else:
+                # In terms of live stepping here, the process and logic is similar
+                # to that in the above if (agent) statement.
                 try:
-                    ret = evt.func(self.ctx, *cfg.args, **cfg.kwargs)
+                    if not single_step or not event.done:
+                        ret = evt.func(self.ctx, *cfg.args, **cfg.kwargs)
 
-                    trace.append({
-                        'event': event_name,
-                        'triggered': []
-                    })
+                    if single_step and not event.done:
+                        event.agents.append(-1)  # Append -1 instead of agent_id
 
-                    _next_events.extend(self._get_related_events(event_name, ret))
+                    if not single_step or -1 in event.agents:
+                        trace.append({
+                            'event': event_name,
+                            'triggered': []
+                        })
+
+                    if not single_step or not event.done:
+                        _next_events.extend(self._get_related_events(event_name, ret))
                 except Exception as exc:
                     if not ignore_exceptions:
                         raise exc
 
+            if single_step and not event.done:
+                # This marks one step.
+                _stepped = True
+                event.done = True
+                event.triggered = [ProcessingStep(event=x, agents=[]) for x in _next_events]
+
             # Check if the event was triggered.
             # It may have been triggered only once, or by every (or some) agents.
+            # We also checked if we made a step if live stepping. If so, we can
+            # return at this point.
             if not trace:
                 continue
 
-            # At this point, we know the event was triggered.
-            # We don't know how many times it was triggered, however, or if any exceptions occurred.
-            # Search for related events and relegate them to a recursive call.
-            related_events = _next_events
+            if not single_step or not _stepped:
+                # At this point, we know the event was triggered.
+                # We don't know how many times it was triggered, however, or if any exceptions occurred.
+                # Search for related events and relegate them to a recursive call.
+                related_events = event.triggered if single_step else _next_events
 
-            triggered = self._process(
-                related_events,
-                ignore_exceptions=ignore_exceptions
-            )
+                triggered, _stepped = self._process(
+                    related_events,
+                    ignore_exceptions=ignore_exceptions,
+                    single_step=single_step
+                )
 
-            if len(trace) == 1:
-                trace[0]['triggered'] = triggered
-            else:
-                # agents
-                for t in trace:
-                    for e in triggered:
-                        if t['agent'] == e['agent']:
-                            t['triggered'].append(e)
+                if len(trace) == 1:
+                    trace[0]['triggered'] = triggered
+                else:
+                    # agents
+                    for t in trace:
+                        for e in triggered:
+                            if t['agent'] == e['agent']:
+                                t['triggered'].append(e)
 
             _events.extend(trace)
 
-        return _events
+        return _events, _stepped
 
     def process(self, *args, **kwargs) -> Trace:
         """
         Run `World._process` and set `self._last_trace`.
         """
-        self._last_trace = self._process(*args, **kwargs)
+        self._last_trace, _ = self._process(*args, **kwargs)
 
         # We must tell all threaded agents to quit.
         # TODO: Should we somehow start them here also?
@@ -426,6 +506,24 @@ class World:
                 a.join()
 
         return self._last_trace
+
+    def step(self, events=None, *args, **kwargs):
+        current_steps = []
+
+        if self._processing_state is None:
+            if events is None:
+                events = self.get_origin_events()
+
+            for e in events:
+                current_steps.append(ProcessingStep(event=e, agents=[]))
+
+            self._processing_state = current_steps
+
+        self._last_trace, stepped = self._process(
+            self._processing_state, single_step=True, *args, **kwargs
+        )
+
+        return stepped
 
     def process_with_callback(self, callback: t.Callable, *args, **kwargs) -> Trace:
         """
