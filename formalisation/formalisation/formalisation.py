@@ -1,3 +1,4 @@
+import itertools
 import typing as t
 from collections import namedtuple
 from dataclasses import dataclass
@@ -60,7 +61,8 @@ def _graph_from_trace(events: Trace, unique_events: bool = False, *,
         if not unique_events:
             dest = event['event']
         else:
-            dest = f'{_event_counter}:{event["event"]}'
+            _id = event['id'] if event['id'] is not None else _event_counter
+            dest = f'{_id}:{event["event"]}'
             _event_counter += 1
 
         if event.get('agent') is not None:
@@ -140,23 +142,34 @@ class Event:
     triggered_by: t.Optional[str]
 
 
-@dataclass
+# @dataclass
+# class ProcessingStep:
+#     """
+#     Marker used for live stepping.
+#     """
+#     # The event representing this step.
+#     event: EventType
+
+#     # Have we processed this event before?
+#     done: bool = False
+
+#     # List of agents which have successfully executed this event.
+#     # If this is a global event, -1 is appended on success instead.
+#     agents: t.List[t.Union[int, t.Tuple[int, int]]] = None
+
+#     # List of steps which this event triggered.
+#     triggered: t.List['ProcessingStep'] = None
+
+
 class ProcessingStep:
-    """
-    Marker used for live stepping.
-    """
-    # The event representing this step.
-    event: EventType
+    next_id = itertools.count()
 
-    # Have we processed this event before?
-    done: bool = False
-
-    # List of agents which have successfully executed this event.
-    # If this is a global event, -1 is appended on success instead.
-    agents: t.List[t.Union[int, t.Tuple[int, int]]] = None
-
-    # List of steps which this event triggered.
-    triggered: t.List['ProcessingStep'] = None
+    def __init__(self, event, done = False, agents = None, triggered = None) -> None:
+        self.event = event
+        self.done = done
+        self.agents = agents or []
+        self.triggered = triggered or []
+        self.id = next(ProcessingStep.next_id)
 
 
 class Agent:
@@ -390,7 +403,8 @@ class World:
                                 trace.append({
                                     'event': event_name,
                                     'agent': a._agent_id,
-                                    'triggered': []
+                                    'triggered': [],
+                                    'id': f'{a.global_id}{event.id}' if single_step else None  # For live stepping
                                 })
 
                             if not single_step or not event.done:
@@ -445,7 +459,8 @@ class World:
                     if not single_step or -1 in event.agents:
                         trace.append({
                             'event': event_name,
-                            'triggered': []
+                            'triggered': [],
+                            'id': f'0{event.id}' if single_step else None  # For live stepping
                         })
 
                     if not single_step or not event.done:
@@ -563,7 +578,8 @@ class World:
 
         return flow
 
-    def draw_trace_graph(self, notebook: bool = True, unique_events: bool = False, fname: str = None):
+    def draw_trace_graph(self, notebook: bool = True, unique_events: bool = False,
+                         fname: str = None, show: bool = True):
         """
         Visualize the last event trace resulting from processing the world.
         """
@@ -598,7 +614,11 @@ class World:
         )
 
         net.from_nx(G)
-        return net.show(fname or 'trace.html')
+
+        if show:
+            return net.show(fname or 'trace.html')
+
+        return net.write_html(fname or 'trace.html')
 
     def draw_flow_graph(self, notebook: bool = True, fname: str = None):
         """

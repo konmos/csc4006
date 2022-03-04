@@ -1,8 +1,10 @@
 import click
+import json
 import importlib
 from typing import get_type_hints
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
-from formalisation.formalisation import World, visualize_fdl
+from formalisation.formalisation import World, visualize_fdl, _graph_from_trace
 
 
 def _get_world(module):
@@ -119,6 +121,95 @@ def step(fname):
 
     while not stepper.exit:
         print(stepper.parse_command(input('> ')))
+
+
+def _server_factory(world, ignore_exceptions):
+    class S(BaseHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            self.world = world  # Have to do this before the super.__init__
+            self.ignore_exceptions = ignore_exceptions
+            super().__init__(*args, **kwargs)
+
+        def _set_headers(self, content_type=None):
+            self.send_response(200)
+            self.send_header('Content-type', content_type or 'text/html')
+            self.end_headers()
+
+        def do_GET(self):
+            """
+            Reset the last trace and return the base HTML template.
+            This does NOT reset the world state.
+            """
+            self._set_headers()
+
+            self.world._last_trace = []
+
+            with open('stepping.html', 'r') as fd:
+                text = fd.read()
+
+            self.wfile.write(text.encode('utf8'))
+
+        def do_POST(self):
+            """
+            Perform a step and return the graph in vis.js format.
+            """
+            self._set_headers(content_type='text/json')
+
+            # We don't care about the path.
+            # Assume all POST requests represent a single step.
+            self.world.step(ignore_exceptions=self.ignore_exceptions)
+
+            nodes, edges = [], []
+
+            # Calculate the graph with unique nodes.
+            n, e = _graph_from_trace(self.world._last_trace, True)
+
+            # Process the graph so that vis.js understands it.
+            for node in n:
+                nodes.append({
+                    'font': {'color': 'white'},
+                    'group': 1,
+                    'id': node,
+                    'label': node,
+                    'shape': 'dot',
+                    'size': 10
+                })
+
+            for edge in e:
+                edges.append({
+                    'arrows': 'to',
+                    'from': edge[0],
+                    'to': edge[1]
+                })
+
+            # Return the graph in JSON format.
+            # vis.js will handle the rest on the frontend.
+            self.wfile.write(
+                json.dumps({'nodes': nodes, 'edges': edges}).encode('utf8')
+            )
+
+    return S
+
+
+@cli.command()
+@click.argument('fname')
+@click.option('-host', default='localhost', help='server hostname')
+@click.option('-port', default=8080, help='server port')
+@click.option('-ix', default=False, is_flag=True, help='ignore exceptions')
+def web(fname, host, port, ix=False):
+    # This starts a simple web server for a specified world.
+    # This allows the world to be stepped and visualized in real time
+    # from a web browser using the vis.js library.
+    # This implementation is obviously very crude. There
+    # are lots of problems with this design and code. It needs
+    # re-writing. It is not even close to being "production"/"end-user" ready.
+    # These were all purposeful decisions. The purpose behind this code is purely
+    # for demonstration/testing purposes.
+    world = _get_world(fname)
+    httpd = HTTPServer((host, port), _server_factory(world, ix))
+
+    print(f'Starting httpd server on {host}:{port}')
+    httpd.serve_forever()
 
 
 if __name__ == '__main__':

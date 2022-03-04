@@ -1,0 +1,127 @@
+<html>
+  <head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis.css" type="text/css" />
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/vis/4.16.1/vis-network.min.js"> </script>
+
+    <style type="text/css">
+      #mynetwork {
+        width: 500px;
+        height: 500px;
+        background-color: #222222;
+        border: 1px solid lightgray;
+        position: relative;
+        float: left;
+      }
+
+      .step-btn {
+        margin: 10px;
+        cursor: pointer;
+        padding: 5px 10px;
+        background-color: #222222;
+        color: lightgray;
+        border-radius: 3px;
+        box-sizing: border-box;
+        display: inline-block;
+        transition: 0.15s;
+      }
+
+      .step-btn:hover {
+        opacity: 0.8;
+      }
+    </style>
+  </head>
+
+  <body>
+    <span class="js-step step-btn">STEP</span>
+    <div id = "mynetwork"></div>
+
+
+    <script type="text/javascript">
+      function _xmlhttp(url, callback, params, meth) {
+        let xmlHttp = new XMLHttpRequest();
+
+        xmlHttp.onreadystatechange = function() {
+          if (xmlHttp.readyState === XMLHttpRequest.DONE) {
+            const contentType = xmlHttp.getResponseHeader('Content-Type');
+            if (callback) callback(xmlHttp.responseText, xmlHttp.status);
+          }
+        };
+
+        xmlHttp.open(meth, url, true); // true for asynchronous
+        xmlHttp.setRequestHeader('Content-type', 'application/json');
+        xmlHttp.send(JSON.stringify(params || {}));
+      }
+
+      function httpPostAsync(url, callback, params) {
+        return _xmlhttp(url, callback, params, 'POST');
+      }
+
+      // initialize global variables.
+      let edges;
+      let nodes;
+      let network;
+      let container;
+      let options, data;
+
+      // Update nodes and edges on a step.
+      document.querySelector('.js-step').addEventListener('click', e => {
+        httpPostAsync(
+          '/',
+          function(resp) {
+            const j = JSON.parse(resp);
+            nodes.update(j['nodes']);
+            edges.update(j['edges']);
+          }
+        );
+      });
+
+
+      // This method is responsible for drawing the graph, returns the drawn network
+      function drawGraph() {
+        var container = document.getElementById('mynetwork');
+
+        // parsing and collecting nodes and edges from the python
+        nodes = new vis.DataSet([]);
+        edges = new vis.DataSet([]);
+
+        // adding nodes and edges to the graph
+        data = {nodes: nodes, edges: edges};
+
+        var options = {
+          "configure": {
+            "enabled": true
+          },
+          "edges": {
+            "color": {
+              "inherit": true
+            },
+            "smooth": {
+              "enabled": true,
+              "type": "continuous"
+            }
+          },
+          "interaction": {
+            "dragNodes": true,
+            "hideEdgesOnDrag": true,
+            "hideNodesOnDrag": false
+          },
+          "physics": {
+            "enabled": true,
+            "stabilization": {
+              "enabled": true,
+              "fit": true,
+              "iterations": 1000,
+              "onlyDynamicEdges": false,
+              "updateInterval": 50
+            }
+          }
+        };
+
+        network = new vis.Network(container, data, options);
+        return network;
+      }
+
+      drawGraph();
+    </script>
+  </body>
+</html>
