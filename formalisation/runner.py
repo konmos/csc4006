@@ -55,9 +55,11 @@ def run(fname, origin=None, ix=False, trace=None, unique=False, fdl=None):
 
 
 class LiveStepper:
-    def __init__(self, world):
+    def __init__(self, world, origin=None, ix=False):
         self.world = world
         self.exit = False
+        self.origin = origin
+        self.ix = ix
 
     def parse_command(self, command):
         cmd, *args = [x.strip() for x in command.split(' ')]
@@ -93,7 +95,7 @@ class LiveStepper:
         ret = False
 
         for _ in range(by):
-            ret = self.world.step()
+            ret = self.world.step(events=self.origin, ignore_exceptions=self.ix)
 
         return ret
 
@@ -115,19 +117,24 @@ class LiveStepper:
 
 @cli.command()
 @click.argument('fname')
-def step(fname):
+@click.option('-origin', default=None, type=str, help='list of origin events')
+@click.option('-ix', default=False, is_flag=True, help='ignore exceptions')
+def step(fname, origin=None, ix=False):
     world = _get_world(fname)
-    stepper = LiveStepper(world)
+    stepper = LiveStepper(
+        world, [x.strip() for x in origin.split(',')] if origin else None, ix
+    )
 
     while not stepper.exit:
         print(stepper.parse_command(input('> ')))
 
 
-def _server_factory(world, ignore_exceptions):
+def _server_factory(world, origin, ignore_exceptions):
     class S(BaseHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             self.world = world  # Have to do this before the super.__init__
             self.ignore_exceptions = ignore_exceptions
+            self.origin = origin
             super().__init__(*args, **kwargs)
 
         def _set_headers(self, content_type=None):
@@ -157,7 +164,7 @@ def _server_factory(world, ignore_exceptions):
 
             # We don't care about the path.
             # Assume all POST requests represent a single step.
-            self.world.step(ignore_exceptions=self.ignore_exceptions)
+            self.world.step(events=self.origin, ignore_exceptions=self.ignore_exceptions)
 
             nodes, edges = [], []
 
@@ -195,8 +202,9 @@ def _server_factory(world, ignore_exceptions):
 @click.argument('fname')
 @click.option('-host', default='localhost', help='server hostname')
 @click.option('-port', default=8080, help='server port')
+@click.option('-origin', default=None, type=str, help='list of origin events')
 @click.option('-ix', default=False, is_flag=True, help='ignore exceptions')
-def web(fname, host, port, ix=False):
+def web(fname, host, port, origin=None, ix=False):
     # This starts a simple web server for a specified world.
     # This allows the world to be stepped and visualized in real time
     # from a web browser using the vis.js library.
@@ -206,7 +214,10 @@ def web(fname, host, port, ix=False):
     # These were all purposeful decisions. The purpose behind this code is purely
     # for demonstration/testing purposes.
     world = _get_world(fname)
-    httpd = HTTPServer((host, port), _server_factory(world, ix))
+    httpd = HTTPServer(
+        (host, port),
+        _server_factory(world, [x.strip() for x in origin.split(',')] if origin else None, ix)
+    )
 
     print(f'Starting httpd server on {host}:{port}')
     httpd.serve_forever()
