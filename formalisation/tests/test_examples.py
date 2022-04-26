@@ -1,3 +1,9 @@
+# This file is a part of the final year project "Story and Software" (CSC4006).
+# Author: Konrad Mosoczy (Queen's University Belfast - QUB)
+# https://github.com/konmos/csc4006 (also available on GitLab)
+# ------------------------------------------------------------------------------
+# These are the test cases for the story-thinking framework.
+
 import pytest
 from formalisation.examples import bgp, dp, dp2, hg, paul_allens_apples
 

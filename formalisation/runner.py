@@ -1,3 +1,9 @@
+# This file is a part of the final year project "Story and Software" (CSC4006).
+# Author: Konrad Mosoczy (Queen's University Belfast - QUB)
+# https://github.com/konmos/csc4006 (also available on GitLab)
+# ------------------------------------------------------------------------------
+# This is runner script for the story-thinking framework.
+
 import click
 import json
 import importlib
@@ -8,18 +14,20 @@ from formalisation.formalisation import World, visualize_fdl, _graph_from_trace
 
 
 def _get_world(module):
+    """Try to find the world instance of a given module."""
     _mod = importlib.import_module(module)
     return [x for x in vars(_mod).values() if isinstance(x, World)][0]
 
 
 @click.group()
 def cli():
-    pass
+    """CLI entry point."""
 
 
 @cli.command()
 @click.argument('fdl')
 def draw_fdl(fdl):
+    """Draw FDL command."""
     visualize_fdl(fdl, notebook=False)
 
 
@@ -31,6 +39,7 @@ def draw_fdl(fdl):
 @click.option('-unique', default=False, help='output unique nodes when used with -trace', is_flag=True)
 @click.option('-fdl', default=None, help='output file for FDL visualization', type=str)
 def run(fname, origin=None, ix=False, trace=None, unique=False, fdl=None):
+    """Run the given module."""
     world = _get_world(fname)
 
     if origin is not None:
@@ -55,13 +64,21 @@ def run(fname, origin=None, ix=False, trace=None, unique=False, fdl=None):
 
 
 class LiveStepper:
+    """Helper class to handle the live stepping CLI."""
     def __init__(self, world, origin=None, ix=False):
         self.world = world
-        self.exit = False
-        self.origin = origin
-        self.ix = ix
+        self.exit = False  # indicates if we wish to exit.
+        self.origin = origin  # origin events.
+        self.ix = ix  # ignore exceptions
 
     def parse_command(self, command):
+        """
+        Parse a command.
+        We split the command from it's arguments by a single space character.
+        We then find the method to which the command corresponds and use the type hints
+        from the method signature to convert the command arguments to the correct types.
+        Finally, the method is called with the correct arguments.
+        """
         cmd, *args = [x.strip() for x in command.split(' ')]
 
         try:
@@ -76,6 +93,8 @@ class LiveStepper:
                 args[i] = type_hints[i](args[i])
 
         return meth(*args)
+
+    # Below are all the supported commands (beginning with `cmd_`).
 
     def cmd_help(self):
         return (
@@ -120,6 +139,7 @@ class LiveStepper:
 @click.option('-origin', default=None, type=str, help='list of origin events')
 @click.option('-ix', default=False, is_flag=True, help='ignore exceptions')
 def step(fname, origin=None, ix=False):
+    """Start the interactive live stepping interface."""
     world = _get_world(fname)
     stepper = LiveStepper(
         world, [x.strip() for x in origin.split(',')] if origin else None, ix
@@ -130,6 +150,10 @@ def step(fname, origin=None, ix=False):
 
 
 def _server_factory(world, origin, ignore_exceptions):
+    """
+    Return a HTTP server.
+    We have to use a factory pattern here to pass arguments.
+    """
     class S(BaseHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             self.world = world  # Have to do this before the super.__init__
@@ -195,7 +219,7 @@ def _server_factory(world, origin, ignore_exceptions):
                 json.dumps({'nodes': nodes, 'edges': edges}).encode('utf8')
             )
 
-    return S
+    return S  # Our server
 
 
 @cli.command()

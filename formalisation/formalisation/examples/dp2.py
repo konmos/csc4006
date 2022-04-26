@@ -1,3 +1,9 @@
+# This file is a part of the final year project "Story and Software" (CSC4006).
+# Author: Konrad Mosoczy (Queen's University Belfast - QUB)
+# https://github.com/konmos/csc4006 (also available on GitLab)
+# ------------------------------------------------------------------------------
+# This is the Dining Philosophers (threaded) example for the story-thinking framework.
+
 import time
 import threading
 from ..formalisation import World, ThreadedAgent
@@ -5,16 +11,17 @@ from ..formalisation import World, ThreadedAgent
 w = World()
 
 class Fork:
+    """A single fork."""
     def __init__(self):
-        self.in_use = False
+        self.in_use = False  # True if a philosopher is eating with this fork.
 
 
 class ForkInUse(Exception):
-    pass
+    """Raised when an attempt is made to eat with a fork which is already used."""
 
 
-# test procedure as described in the paper
 def test(ctx, k):
+    """The `test` procedure as described in the original paper."""
     c = ctx.table
 
     if c[(k-1) % len(c)].c != 2 and c[k].c == 1 and c[(k+1) % len(c)].c != 2:
@@ -23,6 +30,10 @@ def test(ctx, k):
 
 
 class Philosopher(ThreadedAgent):
+    """
+    Represents a threaded philosopher.
+    Each philosopher is either thinking or eating at all times.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__ (*args, **kwargs)
 
@@ -33,10 +44,12 @@ class Philosopher(ThreadedAgent):
         self.prisem = threading.Semaphore(0)  # private semaphore
 
     def get_forks(self, ctx):
+        """Return the appropriate forks from the context."""
         return ctx.forks[self.agent_id], ctx.forks[(self.agent_id + 1) % len(ctx.forks)]
 
     @w.event('dine')
     def think(self, ctx):
+        """Philosopher thinks and stops eating."""
         # Signal that we're not eating.
         ctx.mutex.acquire()
         self.c = 0
@@ -54,7 +67,9 @@ class Philosopher(ThreadedAgent):
 
     @w.event('Philosopher.think')
     def eat(self, ctx):
+        """Philosopher eats and stops thinking."""
         # Wait until we can eat.
+        # Procedure here is exactly as described in the paper.
         ctx.mutex.acquire()
         self.c = 1
         test(ctx, self.global_id)
@@ -64,6 +79,7 @@ class Philosopher(ThreadedAgent):
         # Now we can eat.
         f = self.get_forks(ctx)
 
+        # This will never get raised.
         if f[0].in_use or f[1].in_use:
             raise ForkInUse
 
@@ -104,7 +120,7 @@ def dine(ctx):
         w.add_agent(Philosopher)
 
     ctx.mutex = threading.Semaphore(1)
-    ctx.table = w.agents
+    ctx.table = w.agents  # This is for convenience.
 
     # Start threads
     for philosopher in w.agents:

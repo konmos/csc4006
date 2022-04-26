@@ -1,3 +1,9 @@
+# This file is a part of the final year project "Story and Software" (CSC4006).
+# Author: Konrad Mosoczy (Queen's University Belfast - QUB)
+# https://github.com/konmos/csc4006 (also available on GitLab)
+# ------------------------------------------------------------------------------
+# This is the story-thinking framework source code.
+
 import itertools
 import typing as t
 from collections import namedtuple
@@ -7,6 +13,7 @@ from queue import Empty, Queue
 from types import SimpleNamespace
 
 try:
+    # These are not strictly necessary; they are used for drawing graphs.
     import networkx as nx
     from pyvis.network import Network
     DRAWING_ENABLED = True
@@ -39,6 +46,7 @@ EventConfig = namedtuple(
     defaults=[None, False, None, [], {}]
 )
 
+# Type definitions for brevity.
 Trace = t.List[t.Dict[str, t.Union[str, 'Trace']]]
 Nodes = t.List[str]
 Edges = t.List[t.Tuple[str, str]]
@@ -50,6 +58,12 @@ def _graph_from_trace(events: Trace, unique_events: bool = False, *,
     """
     Recursively parse an execution trace and return a set of nodes and edges
     to represent it graphically.
+
+    `unique_events` indicates whether we should treat each instance of
+    an event as a distinct node. No other arguments should be passed
+    to this function.
+
+    Returns a set of nodes and edges.
     """
     if events is None:
         return []
@@ -114,6 +128,8 @@ def _graph_from_fdl(fdl: t.Union[str, t.List[str]]) -> t.Tuple[Nodes, Edges]:
 def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True, fname: str = None):
     """
     Draw the visual representation of a FDL description.
+    `notebook` argument should only be true if this is called from a notebook.
+    `fname` must end in '.HTML'.
     """
     if not _check_drawing_libs():
         return
@@ -137,6 +153,7 @@ def visualize_fdl(fdl: t.Union[str, t.List[str]], notebook: bool = True, fname: 
 
 @dataclass
 class Event:
+    """Wrapper around events for convenience."""
     name: str
     func: t.Callable
     triggered_by: t.Optional[str]
@@ -162,17 +179,22 @@ class Event:
 
 
 class ProcessingStep:
+    """
+    Represents a single, deterministic step in the processing of a world.
+    Used for live stepping.
+    """
     next_id = itertools.count()
 
     def __init__(self, event, done = False, agents = None, triggered = None) -> None:
-        self.event = event
-        self.done = done
-        self.agents = agents or []
-        self.triggered = triggered or []
-        self.id = next(ProcessingStep.next_id)
+        self.event = event  # The event that this step corresponds to.
+        self.done = done  # Did we call this already?
+        self.agents = agents or []  # Agents that called this event.
+        self.triggered = triggered or []  # Events that this triggered.
+        self.id = next(ProcessingStep.next_id)  # Unique ID.
 
 
 class Agent:
+    """Represents an Agent."""
     def __init__(self, agent_id: t.Tuple[int, int]) -> None:
         # agent_id is a two element tuple, where the first element
         # is the global ID amongst all other agents, and the second element
@@ -196,6 +218,12 @@ class Agent:
 
 
 class ThreadedAgent(Thread, Agent):
+    """
+    Represents a threaded agent.
+    Threaded agents are implemented with a consumer/producer pattern.
+    They simply accept "jobs" from a queue and output the appropriate results.
+    These results are then processed by the main loop in the world instance.
+    """
     def __init__(self, agent_id: t.Tuple[int, int], *args, **kwargs) -> None:
         Thread.__init__(self, *args, **kwargs)
         Agent.__init__(self, agent_id)
@@ -204,44 +232,52 @@ class ThreadedAgent(Thread, Agent):
         self.event_q = Queue()
 
     def dispatch_event(self, event, *args):
+        """Indicate that an event needs processing."""
+        # This is called by the world instance.
         self.event_q.put((event, *args))
 
     def process_event(self, event, ctx, *args, **kwargs):
+        """Process an event by calling it."""
         # Event will be of the format "Class.event"
         evt = event.split('.')[-1]
         return getattr(self, evt)(ctx, *args, **kwargs)
 
     def join(self, *args, **kwargs):
+        # Exit.
         self._stop_cycle = True
         super().join(*args, **kwargs)
 
     def run(self):
         while not self._stop_cycle:
             try:
+                # event is the event that needs to be processed.
+                # q is the output queue to which we should append the result.
+                # ctx, args, kwargs should be passed to the event handler.
                 event, q, ctx, args, kwargs = self.event_q.get(timeout=2)
             except Empty:
                 continue
 
             try:
                 ret = self.process_event(event, ctx, *args, **kwargs)
-                q.put((self, None, ret))
+                q.put((self, None, ret))  # No exception.
             except Exception as e:
+                # Indicate that an exception has been thrown.
                 q.put((self, e, None))
 
 
 class World:
     """
-    A World class keeps track of all agents, componenets, events, and actions.
+    A World class keeps track of all agents, components, events, actions, and the context.
     This World instance is also responsible for processing and emitting events.
     """
 
     def __init__(self) -> None:
-        self.agents: t.List[Agent] = []
+        self.agents: t.List[Agent] = []  # List of all agent instances.
         # self.components = []
-        self.events: t.Mapping[str, Event] = {}
+        self.events: t.Mapping[str, Event] = {}  # All events.
         self.ctx: SimpleNamespace = SimpleNamespace()
 
-        self._last_trace: Trace = None
+        self._last_trace: Trace = None  # The trace resulting from the last `process` call.
         self._processing_state = None  # Used for live stepping
 
     def reset_agents(self) -> None:
@@ -297,7 +333,7 @@ class World:
 
     def _get_related_events(self, event_name, cfg=None):
         """
-        Generate a list of events to trigger next, taking into account the current config.
+        Generate a list of events to trigger next, taking into account the current event config.
         """
         cfg = cfg or EventConfig()
 
@@ -326,9 +362,10 @@ class World:
         we made a new step. If no step has been made, it can be concluded that execution is over.
         """
         if events is None:
+            # Automatically discover origin events.
             events = self.get_origin_events()
 
-        _events = []
+        _events = []  # The current trace.
 
         # Used for live stepping - indicates if we made a new step in this
         # recursive step. If so, we have to return.
@@ -523,6 +560,10 @@ class World:
         return self._last_trace
 
     def step(self, events=None, *args, **kwargs):
+        """
+        Make a single step and update the processing state.
+        Returns a boolean indicating if we made a step.
+        """
         current_steps = []
 
         if self._processing_state is None:
@@ -582,6 +623,8 @@ class World:
                          fname: str = None, show: bool = True):
         """
         Visualize the last event trace resulting from processing the world.
+        `fname` should end in '.HTML'.
+        If `show` is false, we just write the output (without opening the file).
         """
         if not _check_drawing_libs():
             return
@@ -623,6 +666,7 @@ class World:
     def draw_flow_graph(self, notebook: bool = True, fname: str = None):
         """
         Visualize the FDL description of this world.
+        `fname` should end in '.HTML'.
         """
         flow = self.generate_fdl()
         return visualize_fdl(flow, notebook=notebook, fname=fname)
