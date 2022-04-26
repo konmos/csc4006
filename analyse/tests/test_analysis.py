@@ -1,3 +1,9 @@
+# This file is a part of the final year project "Story and Software" (CSC4006).
+# Author: Konrad Mosoczy (Queen's University Belfast - QUB)
+# https://github.com/konmos/csc4006 (also available on GitLab)
+# ------------------------------------------------------------------------------
+# Test the narrative analysis script (analyse_narrative.py) with 3 sample stories.
+
 from analyse_narrative import perform_analysis, extract_nouns, simple_relationships
 
 
