@@ -234,6 +234,49 @@ if __name__ == '__main__':
 
 We had to start the thread manually from within the `paul_rests` event, however, all other overheads and complications are handled automatically by the library.
 
+## Context
+
+The keen reader has likely noticed that all events and actions accept a `ctx` argument. This is a `SimpleNamespace` instance which allows the easy sharing of variables between actions and events. Consider, for example, if we wanted to keep track of the initial apple that falls from the tree:
+
+```python
+import random
+from formalisation.formalisation import World, Agent, EventConfig
+
+w = World()
+
+
+class Paul(Agent):
+    @w.event('apple_falls')
+    def eat_apple(self, ctx):
+        ctx.apple = 1  # Indicate that the apple was eaten.
+        print('an apple has been eaten')
+
+        if random.random() > 0.5:
+            return EventConfig(no_propagate=True)
+
+    @w.event('Paul.eat_apple')
+    def pick_apple(self, ctx):
+        print('another apple has been picked and eaten')
+
+
+@w.event()
+def apple_falls(ctx):
+    ctx.apple = 0  # 0 = fallen apple; 1 = apple has been eaten
+    print('an apple has fallen')
+
+
+@w.event()
+def paul_rests(ctx):
+    w.add_agent(Paul)
+
+
+if __name__ == '__main__':
+    w.process_with_callback(
+        lambda w, r: w.reset_agents(),
+        ['paul_rests', 'apple_falls']
+    )
+```
+
 ## Using the runner
 
 In addition to running the script as you would any other Python program, we can use the provided 'runner' for additional functionality.
