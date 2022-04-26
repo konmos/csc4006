@@ -1,0 +1,9 @@
+flair
+wheel
+spacy
+numpy
+matplotlib
+click
+networkx[default]
+git+https://github.com/LIAAD/yake
+git+https://github.com/sztal/narcy.git
