@@ -34,6 +34,6 @@ def extract_entities(text):
     ])
 
 
-
-with open('byzantine.txt') as fd:
-    print(extract_entities(fd.read()))
+if __name__ == '__main__':
+    with open('byzantine.txt') as fd:
+        print(extract_entities(fd.read()))

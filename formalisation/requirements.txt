@@ -2,3 +2,4 @@ networkx[default]
 pyvis
 click
 matplotlib
+pytest
